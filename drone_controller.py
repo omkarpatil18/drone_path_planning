@@ -95,6 +95,8 @@ class DroneController:
 
 
 controller = DroneController()
+center = controller.drone_client.simGetVehiclePose()
+controller.drone_client.simCreateVoxelGrid(center, 100, 100, 100, 0.5, "map.binvox")
 
 while True:
     try:
