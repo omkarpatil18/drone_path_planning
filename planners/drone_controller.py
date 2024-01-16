@@ -1,6 +1,9 @@
+import sys
 import airgen
 import numpy as np
 import cmath
+
+sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
 import binvox_rw
 from constants import MAP_LOCATION, HORIZON_LEN, PLAN_FREQ
 
@@ -53,25 +56,31 @@ class DroneController:
                 self.nav_mesh_info[0]["z_val"] + amplitude[2],
             ),
         )
-        # sample a random yaw angle
-        random_yaw = np.random.uniform(-np.pi, np.pi)
-        return airgen.Pose(
-            random_point, airgen.Quaternionr(airgen.Vector3r(0, 0, random_yaw))
-        )
+        return airgen.Pose(random_point, airgen.Quaternionr(airgen.Vector3r(0, 0, 0)))
 
     def plan_and_move(self):
+        """
+        Plan the path for a drone flying with a ~constant velocity of 5m/s.
+        The velocity is reduced as the target approaches and the
+        breaking distance is decided based on the drone velocity.
+        https://github.com/Microsoft/AirSim/blob/main/docs/apis.md#drivetrain
+
+        The default implementation is in the find_path function.
+        TODO: File I/O of the voxel grid is an unnecessary overhead
+        """
+
         # Get current pose of the drone in 6-DOF
         start_pose = self.drone_client.simGetVehiclePose()
 
         # Sample a random valid pose in the environment
         goal_pose = self.sample_random_pose()
-        print(
-            f"Moving to goal position: [{goal_pose.position.x_val}, {goal_pose.position.y_val}, {goal_pose.position.z_val}]"
-        )
+        goal_pose.position.z_val = start_pose.position.z_val  # In the same plane
+
+        print(f"Moving to goal position: [{goal_pose.position.__dict__}]")
         while start_pose != goal_pose:
             start_pose = self.drone_client.simGetVehiclePose()
             x_vec = goal_pose.position.x_val - start_pose.position.x_val
-            y_vec =  goal_pose.position.y_val - start_pose.position.y_val
+            y_vec = goal_pose.position.y_val - start_pose.position.y_val
             z_vec = goal_pose.position.z_val - start_pose.position.z_val
 
             # Get heading towards the final goal
@@ -81,7 +90,7 @@ class DroneController:
                 rS = PLAN_FREQ
             if rS < 5:
                 print(
-                    f"##### Destination reached: {start_pose.position} | Target: {goal_pose.position}"
+                    f"##### Destination reached: {start_pose.position.__dict__} | Target: {goal_pose.position.__dict__}"
                 )
                 break
 
@@ -96,18 +105,17 @@ class DroneController:
                 start_pose.position.z_val + goal_z,
             ]
 
-            random_yaw = np.random.uniform(-np.pi, np.pi)
             interrim_goal_pose = airgen.Pose(
                 airgen.Vector3r(*interrim_goal),
-                airgen.Quaternionr(airgen.Vector3r(0, 0, random_yaw)),
+                airgen.Quaternionr(airgen.Vector3r(0, 0, 0)),
             )
 
             # For debugging
             print(
                 "***** Current pos: ",
-                start_pose.position,
+                start_pose.position.__dict__,
                 "| Interrim position: ",
-                *np.round(interrim_goal, 2),
+                interrim_goal_pose.position.__dict__,
                 "| At a dist: ",
                 rS,
             )
@@ -136,7 +144,7 @@ class DroneController:
                 points,
                 velocity,
                 120,
-                airgen.DrivetrainType.ForwardOnly,
+                airgen.DrivetrainType.MaxDegreeOfFreedom,
                 airgen.YawMode(False, 0),
                 -1,
                 0,
@@ -145,6 +153,7 @@ class DroneController:
     def find_path(self, start_pose, goal_pose, occ_grid):
         """
         Override this function by implementing your path planning algorithm
+        The default is a black-box planner by airgen.
         Parameters: start_pose, goal_pose, occupancy_grid
         Returns: trajectory (list of waypoints)
         """
@@ -153,11 +162,11 @@ class DroneController:
         trajectory = self.drone_client.simPlanPath(
             start_pose.position, goal_pose.position, True, True
         )
-        # always check the lenght of the trajectory before moving
-        if len(trajectory) < 2:
-            trajectory = self.drone_client.simPlanPathToRandomizeGoal(
-                start_pose.position, goal_pose.position, PLAN_FREQ, 1, True, True
-            )
+        # always check the length of the trajectory before moving
+        # if len(trajectory) < 2:
+        #     trajectory = self.drone_client.simPlanPathToRandomizeGoal(
+        #         start_pose.position, goal_pose.position, PLAN_FREQ, 1, True, True
+        #     )
         return trajectory
 
 
