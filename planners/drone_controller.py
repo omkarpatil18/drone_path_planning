@@ -144,7 +144,7 @@ class DroneController(metaclass=abc.ABCMeta):
             trajectory_in_world = trans_coords.occ_grid_to_world(trajectory_in_occ_grid)
 
             # Move the drone along the planned path at a velocity of 5 m/s
-            velocity = 10.0
+            velocity = 5.0
             self.drone_client.moveOnPathAsync(
                 trajectory_in_world,
                 velocity,

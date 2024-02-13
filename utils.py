@@ -1,3 +1,10 @@
+import ctypes
+import numpy as np
+from constants import PLAN_FREQ, HORIZON_LEN
+
+C_IMPL_DIR = "/home/local/ASUAD/opatil3/src/drone_path_planning/planners/c_impl"
+
+
 class TransformCoordinates:
     """Transform coordinates from world frame to occupancy grid frame and the other-way."""
 
@@ -15,9 +22,6 @@ class TransformCoordinates:
         for waypoint in path:  # path is in world frame
             occ_grid_path.append(waypoint - self.occ_grid_in_world)
         return occ_grid_path
-
-
-import numpy as np
 
 
 def get_points_on_line(p1, p2):
@@ -51,3 +55,41 @@ def get_points_on_line(p1, p2):
     points.append(p2)
 
     return points
+
+
+# Classes to store the occupancy grid and the path found by C implementations
+class OccupancyGrid(ctypes.Structure):
+    _fields_ = [
+        ("array", ((ctypes.c_float * HORIZON_LEN) * (HORIZON_LEN) * (HORIZON_LEN)))
+    ]
+
+
+class Path(ctypes.Structure):
+    _fields_ = [("array", (ctypes.c_float * 3) * (PLAN_FREQ + 1))]
+
+
+######### Code to test the calling of C functions in Python #########
+# Load c function
+# so_file = f"{C_IMPL_DIR}/sline/sline.so"
+# my_functions = ctypes.cdll.LoadLibrary(so_file)
+# main = my_functions.planner
+# array_type = ctypes.c_float * 3
+
+# # Defining types and structures
+# main.argtypes = (
+#     ctypes.POINTER(ctypes.c_float),
+#     ctypes.POINTER(ctypes.c_float),
+#     ctypes.POINTER(Path),
+#     ctypes.POINTER(OccupancyGrid),
+# )
+# main.restype = None
+
+# # Call the c code
+# path = Path()
+# main(
+#     array_type(*[0.0, 0.0, 0.0]),
+#     array_type(*[3.0, 4.0, 5.0]),
+#     ctypes.byref(path),
+#     None,
+# )
+# print(np.ndarray((PLAN_FREQ + 1, 3), "f", path.array, order="C"))
