@@ -2,15 +2,15 @@ import sys
 import airgen
 import numpy as np
 import cmath
-import abc
+from copy import copy
 
 sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
 import binvox_rw
-from constants import MAP_LOCATION, HORIZON_LEN, PLAN_FREQ, DIST_THRESH
+from constants import MAP_LOCATION, HORIZON_LEN, PLAN_FREQ, DIST_THRESH, SCALE
 from utils import TransformCoordinates
 
 
-class DroneController(metaclass=abc.ABCMeta):
+class DroneController:
     def __init__(self):
         # Initialize a drone client
         self.drone_client = airgen.connect_airgen(robot_type="multirotor")
@@ -60,6 +60,43 @@ class DroneController(metaclass=abc.ABCMeta):
         )
         return airgen.Pose(random_point, airgen.Quaternionr(airgen.Vector3r(0, 0, 0)))
 
+    def spawn_poses(self):
+        """Returns the start and goal pose of the drone"""
+        # Get current pose of the drone in 6-DOF
+        start_pose = self.drone_client.simGetVehiclePose()
+        valid_goal = False
+        while not valid_goal:
+            # # Sample a random valid pose in the environment
+            # goal_pose = self.sample_random_pose()
+            # while goal_pose.position.z_val > 0:
+            #     goal_pose = self.sample_random_pose()
+            # goal_pose.position.z_val = start_pose.position.z_val
+
+            # Goal pose for testing
+            goal_pose = airgen.Pose(
+                airgen.Vector3r(
+                    100.08,
+                    -95.00,
+                    -6.04,
+                ),
+                airgen.Quaternionr(airgen.Vector3r(0, 0, 0)),
+            )
+
+            # Make sure that the goal does not coincide with an obstacle
+            self.drone_client.simCreateVoxelGrid(
+                goal_pose.position,
+                1,
+                1,
+                1,
+                1,
+                MAP_LOCATION,
+            )
+            with open(MAP_LOCATION, "rb") as f:
+                occ_grid = binvox_rw.read_as_3d_array(f)
+            if occ_grid.data[0][0][0] == False:
+                valid_goal = True
+        return start_pose, goal_pose
+
     def plan_and_move(self):
         """
         Plan the path for a drone flying with a ~constant velocity of 5m/s.
@@ -70,20 +107,7 @@ class DroneController(metaclass=abc.ABCMeta):
         The default implementation is in the find_path function.
         TODO: File I/O of the voxel grid is an unnecessary overhead
         """
-
-        # Get current pose of the drone in 6-DOF
-        start_pose = self.drone_client.simGetVehiclePose()
-
-        # Sample a random valid pose in the environment
-        goal_pose = self.sample_random_pose()
-        while goal_pose.position.z_val > 0:
-            goal_pose = self.sample_random_pose()
-        # Goal pose for testing
-        # goal_pose = airgen.Pose(
-        #     airgen.Vector3r(0.0, 0.0, -15.8605295419692993),
-        #     airgen.Quaternionr(airgen.Vector3r(0, 0, 0)),
-        # )
-
+        start_pose, goal_pose = self.spawn_poses()
         print(f"Moving to goal position: {goal_pose.position}")
         while start_pose.position.distance_to(goal_pose.position) > DIST_THRESH:
             pose_vec = goal_pose.position - start_pose.position
@@ -120,7 +144,12 @@ class DroneController(metaclass=abc.ABCMeta):
 
             # Get voxels for planning
             self.drone_client.simCreateVoxelGrid(
-                start_pose, HORIZON_LEN, HORIZON_LEN, HORIZON_LEN, 1, MAP_LOCATION
+                start_pose.position,
+                HORIZON_LEN * SCALE,
+                HORIZON_LEN * SCALE,
+                HORIZON_LEN * SCALE,
+                SCALE,
+                MAP_LOCATION,
             )
             with open(MAP_LOCATION, "rb") as f:
                 occ_grid = binvox_rw.read_as_3d_array(f)
@@ -128,20 +157,54 @@ class DroneController(metaclass=abc.ABCMeta):
             # Transform coordinates to occupancy grid frame
             # For now assume that the drone is at the center of the occcupancy grid
             drone_in_occ_grid = airgen.Vector3r(
-                HORIZON_LEN // 2, HORIZON_LEN // 2, HORIZON_LEN // 2
+                HORIZON_LEN // 2,
+                HORIZON_LEN // 2,
+                HORIZON_LEN // 2,
             )
             trans_coords = TransformCoordinates(
-                drone_in_occ_grid=drone_in_occ_grid, drone_in_world=start_pose.position
+                drone_in_occ_grid=copy(drone_in_occ_grid),
+                drone_in_world=copy(start_pose.position),
             )
-            goal_in_occ_grid = trans_coords.world_to_occ_grid([interrim_goal_vec])
+            goal_in_occ_grid = trans_coords.world_to_occ_grid([copy(interrim_goal_vec)])
 
             # Find a valid path
             trajectory_in_occ_grid = self.find_path(
-                drone_in_occ_grid, goal_in_occ_grid[0], occ_grid
+                copy(drone_in_occ_grid), copy(goal_in_occ_grid[0]), occ_grid
             )
 
+            # Handle the cases where a path is not found. Could be because the interrim goal
+            # lies on an obstacle or a path actually does not exist.
+            while len(trajectory_in_occ_grid) == 0:
+                phi -= np.pi / 4
+                goal_xy, goal_z = get_coords(cmath.rect(rS, phi))
+                goal_x, goal_y = get_coords(cmath.rect(goal_xy, theta))
+
+                interrim_goal_vec = airgen.Vector3r(
+                    start_pose.position.x_val + goal_x,
+                    start_pose.position.y_val + goal_y,
+                    start_pose.position.z_val + goal_z,
+                )
+                # For debugging
+                print(
+                    "*** Current pos: ",
+                    start_pose.position,
+                    "| Interrim position: ",
+                    interrim_goal_vec,
+                    "| At a dist: ",
+                    rS,
+                )
+                goal_in_occ_grid = trans_coords.world_to_occ_grid(
+                    [copy(interrim_goal_vec)]
+                )
+
+                # Find a valid pathconnect_airgen
+                trajectory_in_occ_grid = self.find_path(
+                    copy(drone_in_occ_grid), copy(goal_in_occ_grid[0]), occ_grid
+                )
             # Transform coordinates back to world frame
-            trajectory_in_world = trans_coords.occ_grid_to_world(trajectory_in_occ_grid)
+            trajectory_in_world = trans_coords.occ_grid_to_world(
+                copy(trajectory_in_occ_grid)
+            )
 
             # Move the drone along the planned path at a velocity of 5 m/s
             velocity = 5.0
@@ -157,27 +220,14 @@ class DroneController(metaclass=abc.ABCMeta):
 
             # Get the pose at the end of plan traversal
             start_pose = self.drone_client.simGetVehiclePose()
-        print(
-            f"##### Destination reached: {start_pose.position} | Target: {goal_pose.position}"
-        )
+        print(f"##### Destination reached {goal_pose.position}")
 
-    @abc.abstractmethod
     def find_path(self, start_pose, goal_pose, occ_grid):
         """
         Override this function by implementing your path planning algorithm
         Parameters: start_pose (in occ_grid frame), goal_pose (in occ_grid frame), occupancy_grid
         Returns: trajectory (list of waypoints)
         """
-        # # Compute a collision-free path between start and goal
-        # trajectory = self.drone_client.simPlanPath(
-        #     start_pose.position, goal_pose.position, True, True
-        # )
-        # # always check the length of the trajectory before moving
-        # # if len(trajectory) < 2:
-        # #     trajectory = self.drone_client.simPlanPathToRandomizeGoal(
-        # #         start_pose.position, goal_pose.position, PLAN_FREQ, 1, True, True
-        # #     )
-        # return trajectory
         pass
 
 

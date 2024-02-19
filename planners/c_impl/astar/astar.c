@@ -1,19 +1,9 @@
+/* !! Inefficient implementation !! */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
-
-#define GRID_SIZE_X 5
-#define GRID_SIZE_Y 5
-#define GRID_SIZE_Z 5
-
-// Structure to represent a point in 3D space
-typedef struct
-{
-    int x;
-    int y;
-    int z;
-} Point3D;
+#include </home/local/ASUAD/opatil3/src/drone_path_planning/planners/c_impl/header.h>
 
 // Node structure for A* algorithm
 typedef struct Node
@@ -74,7 +64,7 @@ void insert(BinaryHeap *heap, Node *node)
 {
     if (heap->size == heap->capacity)
     {
-        printf("Heap overflow\n");
+        printf("Heap overflow %d\n", (int)heap->capacity);
         return;
     }
 
@@ -130,24 +120,18 @@ Node *extractMin(BinaryHeap *heap)
     return minNode;
 }
 
-// Function to calculate Euclidean distance between two points
-float euclideanDistance(Point3D a, Point3D b)
-{
-    return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2) + pow(a.z - b.z, 2));
-}
-
-// Function to check if a point is within the grid bounds
+// Function to check if a point is within the occ_grid bounds
 bool isValidPoint(Point3D point)
 {
-    return (point.x >= 0 && point.x < GRID_SIZE_X &&
-            point.y >= 0 && point.y < GRID_SIZE_Y &&
-            point.z >= 0 && point.z < GRID_SIZE_Z);
+    return (point.x >= 0 && point.x < HORIZON_LEN &&
+            point.y >= 0 && point.y < HORIZON_LEN &&
+            point.z >= 0 && point.z < HORIZON_LEN);
 }
 
 // Function to check if a point is passable (not an obstacle)
-bool isPassable(int grid[GRID_SIZE_X][GRID_SIZE_Y][GRID_SIZE_Z], Point3D point)
+bool isPassable(OccupancyGrid *occ_grid, Point3D point)
 {
-    return (isValidPoint(point) && grid[point.x][point.y][point.z] == 0);
+    return (isValidPoint(point) && (occ_grid->array)[(int)point.x][(int)point.y][(int)point.z] == 0.0);
 }
 
 // Function to check if a point is the goal
@@ -157,17 +141,22 @@ bool isGoal(Point3D point, Point3D goal)
 }
 
 // Function to reconstruct the path from the goal node to the start node
-void reconstructPath(Node *currentNode)
+void reconstructPath(Node *currentNode, Path *path)
 {
     if (currentNode != NULL)
     {
-        reconstructPath(currentNode->parent);
-        printf("(%d, %d, %d) -> ", currentNode->point.x, currentNode->point.y, currentNode->point.z);
+        // Add point to path
+        path->array[path->path_len][0] = currentNode->point.x;
+        path->array[path->path_len][1] = currentNode->point.y;
+        path->array[path->path_len][2] = currentNode->point.z;
+        path->path_len++;
+        reconstructPath(currentNode->parent, path);
+        printf("(%d, %d, %d) -> ", (int)currentNode->point.x, (int)currentNode->point.y, (int)currentNode->point.z);
     }
 }
 
 // A* algorithm implementation
-Node *aStar(int grid[GRID_SIZE_X][GRID_SIZE_Y][GRID_SIZE_Z], Point3D start, Point3D goal)
+Node *aStar(Point3D start, Point3D goal, Path *path, OccupancyGrid *occ_grid)
 {
     if (!isValidPoint(start) || !isValidPoint(goal))
     {
@@ -175,25 +164,27 @@ Node *aStar(int grid[GRID_SIZE_X][GRID_SIZE_Y][GRID_SIZE_Z], Point3D start, Poin
         return NULL;
     }
 
-    if (!isPassable(grid, start) || !isPassable(grid, goal))
+    if (!isPassable(occ_grid, start) || !isPassable(occ_grid, goal))
     {
         printf("Start or goal point is an obstacle\n");
         return NULL;
     }
 
-    BinaryHeap *openList = createBinaryHeap(GRID_SIZE_X * GRID_SIZE_Y * GRID_SIZE_Z);
-    bool closedList[GRID_SIZE_X][GRID_SIZE_Y][GRID_SIZE_Z];
+    BinaryHeap *openList = createBinaryHeap(HORIZON_LEN * HORIZON_LEN * HORIZON_LEN);
+    float gScore[HORIZON_LEN][HORIZON_LEN][HORIZON_LEN];
+    path->path_len = 0;
 
-    for (int i = 0; i < GRID_SIZE_X; i++)
+    for (int i = 0; i < HORIZON_LEN; i++)
     {
-        for (int j = 0; j < GRID_SIZE_Y; j++)
+        for (int j = 0; j < HORIZON_LEN; j++)
         {
-            for (int k = 0; k < GRID_SIZE_Z; k++)
+            for (int k = 0; k < HORIZON_LEN; k++)
             {
-                closedList[i][j][k] = false;
+                gScore[i][j][k] = INFINITY;
             }
         }
     }
+    gScore[(int)start.x][(int)start.y][(int)start.z] = 0;
 
     Node *startNode = (Node *)malloc(sizeof(Node));
     startNode->point = start;
@@ -201,22 +192,20 @@ Node *aStar(int grid[GRID_SIZE_X][GRID_SIZE_Y][GRID_SIZE_Z], Point3D start, Poin
     startNode->h = euclideanDistance(start, goal);
     startNode->f = startNode->g + startNode->h;
     startNode->parent = NULL;
-
     insert(openList, startNode);
-
+    bool goalReached = false;
     while (openList->size > 0)
     {
         Node *currentNode = extractMin(openList);
 
         if (isGoal(currentNode->point, goal))
         {
+            goalReached = true;
             printf("Path found: ");
-            reconstructPath(currentNode);
+            reconstructPath(currentNode, path);
             printf("\n");
-            return currentNode;
+            return NULL;
         }
-
-        closedList[currentNode->point.x][currentNode->point.y][currentNode->point.z] = true;
 
         for (int dx = -1; dx <= 1; dx++)
         {
@@ -231,19 +220,19 @@ Node *aStar(int grid[GRID_SIZE_X][GRID_SIZE_Y][GRID_SIZE_Z], Point3D start, Poin
 
                     Point3D neighborPoint = {currentNode->point.x + dx, currentNode->point.y + dy, currentNode->point.z + dz};
 
-                    if (isValidPoint(neighborPoint) && isPassable(grid, neighborPoint))
+                    if (isValidPoint(neighborPoint) && isPassable(occ_grid, neighborPoint))
                     {
                         float tentativeG = currentNode->g + euclideanDistance(currentNode->point, neighborPoint);
 
-                        Node *neighborNode = (Node *)malloc(sizeof(Node));
-                        neighborNode->point = neighborPoint;
-                        neighborNode->g = tentativeG;
-                        neighborNode->h = euclideanDistance(neighborPoint, goal);
-                        neighborNode->f = neighborNode->g + neighborNode->h;
-                        neighborNode->parent = currentNode;
-
-                        if (!closedList[neighborPoint.x][neighborPoint.y][neighborPoint.z])
+                        if (tentativeG < gScore[(int)neighborPoint.x][(int)neighborPoint.y][(int)neighborPoint.z])
                         {
+                            gScore[(int)neighborPoint.x][(int)neighborPoint.y][(int)neighborPoint.z] = tentativeG;
+                            Node *neighborNode = (Node *)malloc(sizeof(Node));
+                            neighborNode->point = neighborPoint;
+                            neighborNode->g = tentativeG;
+                            neighborNode->h = euclideanDistance(neighborPoint, goal);
+                            neighborNode->f = neighborNode->g + neighborNode->h;
+                            neighborNode->parent = currentNode;
                             insert(openList, neighborNode);
                         }
                     }
@@ -251,35 +240,19 @@ Node *aStar(int grid[GRID_SIZE_X][GRID_SIZE_Y][GRID_SIZE_Z], Point3D start, Poin
             }
         }
     }
-
-    printf("No path found.\n");
+    if (!goalReached)
+    {
+        printf("No path found.\n");
+    }
     return NULL;
 }
 
-int main()
+extern void planner(float start[3], float end[3], Path *path, OccupancyGrid *occ_grid)
 {
-    int grid[GRID_SIZE_X][GRID_SIZE_Y][GRID_SIZE_Z] = {
-        {{0, 0, 0, 0, 0}, {0, 0, 1, 0, 0}, {0, 1, 1, 1, 0}, {0, 0, 1, 0, 0}, {0, 0, 0, 0, 0}},
-        {{0, 0, 0, 0, 0}, {0, 1, 1, 0, 0}, {0, 1, 0, 1, 0}, {0, 1, 1, 1, 0}, {0, 0, 0, 0, 0}},
-        {{0, 0, 0, 0, 0}, {0, 1, 1, 1, 0}, {0, 1, 0, 1, 0}, {0, 1, 1, 1, 0}, {0, 0, 0, 0, 0}},
-        {{0, 0, 0, 0, 0}, {0, 0, 1, 1, 0}, {0, 1, 1, 1, 0}, {0, 1, 0, 1, 0}, {0, 0, 0, 0, 0}},
-        {{0, 0, 0, 0, 0}, {0, 0, 1, 1, 1}, {0, 1, 0, 0, 0}, {0, 1, 1, 0, 0}, {0, 0, 0, 0, 0}}};
+    // Define start and end points
+    Point3D start_3d = {start[0], start[1], start[2]};
+    Point3D end_3d = {end[0], end[1], end[2]};
 
-    Point3D start = {0, 0, 0};
-    Point3D goal = {4, 4, 4};
-
-    Node *result = aStar(grid, start, goal);
-
-    if (result != NULL)
-    {
-        // Free memory allocated for the path
-        while (result != NULL)
-        {
-            Node *temp = result;
-            result = result->parent;
-            free(temp);
-        }
-    }
-
-    return 0;
+    // Calculate straight line path
+    aStar(start_3d, end_3d, path, occ_grid);
 }
