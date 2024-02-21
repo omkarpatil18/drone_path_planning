@@ -146,3 +146,39 @@ class Path(ctypes.Structure):
 #     ctypes.byref(occ_grid),
 # )
 # print(np.ndarray((path.path_len, 3), "f", path.array, order="C"))
+
+
+######### Code to test the calling of C a-star planner in Python #########
+# Load c function
+so_file = f"{C_IMPL_DIR}/mikami/mikami.so"
+my_functions = ctypes.cdll.LoadLibrary(so_file)
+main = my_functions.planner
+array_type = ctypes.c_float * 3
+
+# Defining types and structures
+main.argtypes = (
+    ctypes.POINTER(ctypes.c_float),
+    ctypes.POINTER(ctypes.c_float),
+    ctypes.POINTER(Path),
+    ctypes.POINTER(OccupancyGrid),
+)
+main.restype = None
+
+# Call the c code
+path = Path()
+occ_grid = OccupancyGrid()
+for i in range(HORIZON_LEN):
+    for j in range(HORIZON_LEN):
+        for k in range(HORIZON_LEN):
+            occ_grid.array[i][j][k] = 0
+            if i == j == k and i != 0:
+                occ_grid.array[i][j][k] = 1
+
+
+main(
+    array_type(*[0.0, 0.0, 0.0]),
+    array_type(*[1.0, 57.0, 90.0]),
+    ctypes.byref(path),
+    ctypes.byref(occ_grid),
+)
+print(np.ndarray((path.path_len, 3), "f", path.array, order="C"))
