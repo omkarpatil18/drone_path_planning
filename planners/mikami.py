@@ -10,24 +10,15 @@ from drone_controller import DroneController
 from utils import get_points_on_line, C_IMPL_DIR, Path, OccupancyGrid
 
 
-class PyStraightLine(DroneController):
-    def find_path(self, start_pose, goal_pose, occ_grid):
-        """
-        Python implementation of the actual planner
-        Parameters: start_pose, goal_pose, occupancy_grid
-        Returns: trajectory (list of waypoints)
-        """
-        return get_points_on_line(start_pose, goal_pose)
+class CMikami(DroneController):
 
-
-class CStraightLine(DroneController):
     def __init__(self):
         super().__init__()
-        self.so_file = f"{C_IMPL_DIR}/sline/sline.so"
+        self.so_file = f"{C_IMPL_DIR}/mikami/mikami.so"
 
 
 # Plan path to random point
-controller = CStraightLine()
+controller = CMikami()
 try:
     controller.plan_and_move()
 except KeyboardInterrupt:

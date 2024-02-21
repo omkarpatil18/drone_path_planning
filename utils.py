@@ -3,7 +3,7 @@ import numpy as np
 from constants import PLAN_FREQ, HORIZON_LEN, SCALE
 
 C_IMPL_DIR = "/home/local/ASUAD/opatil3/src/drone_path_planning/planners/c_impl"
-
+# cc -fPIC -g -shared -o mikami.so mikami.c
 
 class TransformCoordinates:
     """Transform coordinates from world frame to occupancy grid frame and the other-way."""
@@ -149,36 +149,36 @@ class Path(ctypes.Structure):
 
 
 ######### Code to test the calling of C a-star planner in Python #########
-# Load c function
-so_file = f"{C_IMPL_DIR}/mikami/mikami.so"
-my_functions = ctypes.cdll.LoadLibrary(so_file)
-main = my_functions.planner
-array_type = ctypes.c_float * 3
+# # Load c function
+# so_file = f"{C_IMPL_DIR}/mikami/mikami.so"
+# my_functions = ctypes.cdll.LoadLibrary(so_file)
+# main = my_functions.planner
+# array_type = ctypes.c_float * 3
 
-# Defining types and structures
-main.argtypes = (
-    ctypes.POINTER(ctypes.c_float),
-    ctypes.POINTER(ctypes.c_float),
-    ctypes.POINTER(Path),
-    ctypes.POINTER(OccupancyGrid),
-)
-main.restype = None
+# # Defining types and structures
+# main.argtypes = (
+#     ctypes.POINTER(ctypes.c_float),
+#     ctypes.POINTER(ctypes.c_float),
+#     ctypes.POINTER(Path),
+#     ctypes.POINTER(OccupancyGrid),
+# )
+# main.restype = None
 
-# Call the c code
-path = Path()
-occ_grid = OccupancyGrid()
-for i in range(HORIZON_LEN):
-    for j in range(HORIZON_LEN):
-        for k in range(HORIZON_LEN):
-            occ_grid.array[i][j][k] = 0
-            if i == j == k and i != 0:
-                occ_grid.array[i][j][k] = 1
+# # Call the c code
+# path = Path()
+# occ_grid = OccupancyGrid()
+# for i in range(HORIZON_LEN):
+#     for j in range(HORIZON_LEN):
+#         for k in range(HORIZON_LEN):
+#             occ_grid.array[i][j][k] = 0
+#             if i == j == k and i != 0:
+#                 occ_grid.array[i][j][k] = 1
 
 
-main(
-    array_type(*[0.0, 0.0, 0.0]),
-    array_type(*[1.0, 57.0, 90.0]),
-    ctypes.byref(path),
-    ctypes.byref(occ_grid),
-)
-print(np.ndarray((path.path_len, 3), "f", path.array, order="C"))
+# main(
+#     array_type(*[0.0, 0.0, 0.0]),
+#     array_type(*[1.0, 57.0, 90.0]),
+#     ctypes.byref(path),
+#     ctypes.byref(occ_grid),
+# )
+# print(np.ndarray((path.path_len, 3), "f", path.array, order="C"))
