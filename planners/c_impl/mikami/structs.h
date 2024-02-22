@@ -4,14 +4,6 @@
 
 #include "/home/local/ASUAD/opatil3/src/drone_path_planning/planners/c_impl/header.h"
 
-// Step structure for hopping on lines
-typedef struct
-{
-    int del_x;
-    int del_y;
-    int del_z;
-} Step;
-
 typedef struct LineX LineX;
 typedef struct LineY LineY;
 typedef struct LineZ LineZ;
@@ -86,7 +78,7 @@ typedef struct
 // Struct for storing path to src or dst
 typedef struct
 {
-    float array[PLAN_FREQ * 3][3];
+    float array[HORIZON_LEN * HORIZON_LEN * HORIZON_LEN][3];
     int size;
 } PathFromIntersection;
 

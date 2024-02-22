@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #  Copyright (C) 2012 Daniel Maturana
 #  This file is part of binvox-rw-py.
 #
@@ -26,8 +27,8 @@ Binvox to Numpy and back.
 ...
 >>> m1.dims
 [32, 32, 32]
->>> m1.scale
-41.133000000000003
+>>> round(m1.scale,3)
+41.133
 >>> m1.translate
 [0.0, 0.0, 0.0]
 >>> with open('chair_out.binvox', 'wb') as f:
@@ -62,6 +63,7 @@ True
 """
 
 import numpy as np
+import struct
 
 
 class Voxels(object):
@@ -169,7 +171,6 @@ def read_as_coord_array(fp, fix_coords=True):
     """
     dims, translate, scale = read_header(fp)
     raw_data = np.frombuffer(fp.read(), dtype=np.uint8)
-
     values, counts = raw_data[::2], raw_data[1::2]
 
     sz = np.prod(dims)
@@ -190,8 +191,10 @@ def read_as_coord_array(fp, fix_coords=True):
     # index = x * wxh + z * width + y; // wxh = width * height = d * d
 
     x = nz_voxels / (dims[0] * dims[1])
+    x = x.astype(int)
     zwpy = nz_voxels % (dims[0] * dims[1])  # z*w + y
     z = zwpy / dims[0]
+    z = z.astype(int)
     y = zwpy % dims[0]
     if fix_coords:
         data = np.vstack((x, y, z))
@@ -236,6 +239,15 @@ def sparse_to_dense(voxel_data, dims, dtype=bool):
 # return x*(dims[1]*dims[2]) + z*dims[1] + y
 
 
+def bwrite(fp, s):
+    fp.write(s.encode())
+
+
+def write_pair(fp, state, ctr):
+    fp.write(struct.pack("B", state))
+    fp.write(struct.pack("B", ctr))
+
+
 def write(voxel_model, fp):
     """Write binary binvox format.
 
@@ -251,11 +263,11 @@ def write(voxel_model, fp):
     else:
         dense_voxel_data = voxel_model.data
 
-    fp.write("#binvox 1\n")
-    fp.write("dim " + " ".join(map(str, voxel_model.dims)) + "\n")
-    fp.write("translate " + " ".join(map(str, voxel_model.translate)) + "\n")
-    fp.write("scale " + str(voxel_model.scale) + "\n")
-    fp.write("data\n")
+    bwrite(fp, "#binvox 1\n")
+    bwrite(fp, "dim " + " ".join(map(str, voxel_model.dims)) + "\n")
+    bwrite(fp, "translate " + " ".join(map(str, voxel_model.translate)) + "\n")
+    bwrite(fp, "scale " + str(voxel_model.scale) + "\n")
+    bwrite(fp, "data\n")
     if not voxel_model.axis_order in ("xzy", "xyz"):
         raise ValueError("Unsupported voxel model axis order")
 
@@ -272,19 +284,16 @@ def write(voxel_model, fp):
             ctr += 1
             # if ctr hits max, dump
             if ctr == 255:
-                fp.write(chr(state))
-                fp.write(chr(ctr))
+                write_pair(fp, state, ctr)
                 ctr = 0
         else:
             # if switch state, dump
-            fp.write(chr(state))
-            fp.write(chr(ctr))
+            write_pair(fp, state, ctr)
             state = c
             ctr = 1
     # flush out remainders
     if ctr > 0:
-        fp.write(chr(state))
-        fp.write(chr(ctr))
+        write_pair(fp, state, ctr)
 
 
 if __name__ == "__main__":

@@ -1,8 +1,8 @@
 #ifndef _header_h
 #define _header_h
 
-#define PLAN_FREQ 10
-#define HORIZON_LEN 21
+#define PLAN_FREQ 499
+#define HORIZON_LEN 1000
 // Define a structure to represent a 3D point
 typedef struct
 {
@@ -13,7 +13,7 @@ typedef struct
 typedef struct
 {
     int path_len;
-    float array[PLAN_FREQ * 3][3];
+    float array[HORIZON_LEN * HORIZON_LEN * HORIZON_LEN][3];
 } Path;
 
 // Define a structure to represent the occupancy grid

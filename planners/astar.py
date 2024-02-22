@@ -1,6 +1,5 @@
 import airgen
 import sys
-import ctypes
 import numpy as np
 
 sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
