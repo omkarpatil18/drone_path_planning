@@ -8,7 +8,7 @@ sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
 from binvox_rw import Voxels, write, sparse_to_dense
 from utils import C_IMPL_DIR
 
-HORIZON_LEN = 100
+HORIZON_LEN = 10
 
 
 class CTypesGrid(ctypes.Structure):
@@ -30,7 +30,7 @@ class Cube:
     def __init__(self, density, horizon_len) -> None:
         self.density = density
         self.horizon_len = horizon_len
-        self.dir_path = f"/home/local/ASUAD/opatil3/src/drone_path_planning/simulator/envs/dim_{HORIZON_LEN}/density_{self.density}/"
+        self.dir_path = f"/home/local/ASUAD/opatil3/src/drone_path_planning/simulator/env/dim_{HORIZON_LEN}/density_{self.density}/"
         if not os.path.isdir(self.dir_path):
             os.makedirs(self.dir_path)
         self.create_cube()
@@ -126,7 +126,7 @@ class Cube:
 for idx in range(100):
     path_found = False
     while not path_found:
-        c = Cube(density=0.5, horizon_len=HORIZON_LEN)
+        c = Cube(density=0.70, horizon_len=HORIZON_LEN)
         path_found = c.check_for_valid_path()
         if path_found:
             c.save_env_binvox(idx)

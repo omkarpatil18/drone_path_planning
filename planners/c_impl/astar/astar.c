@@ -120,7 +120,7 @@ Node *extractMin(BinaryHeap *heap)
     return minNode;
 }
 
-// Function to check if a point is within the occ_grid bounds
+// Function to check if a point is within the occGrid bounds
 bool isValidPoint(Point3D point)
 {
     return (point.x >= 0 && point.x < HORIZON_LEN &&
@@ -129,15 +129,66 @@ bool isValidPoint(Point3D point)
 }
 
 // Function to check if a point is passable (not an obstacle)
-bool isPassable(OccupancyGrid *occ_grid, Point3D point)
+bool isPassable(OccupancyGrid *occGrid, Point3D point)
 {
-    return (isValidPoint(point) && (occ_grid->array)[(int)point.x][(int)point.y][(int)point.z] == 0.0);
+    return (isValidPoint(point) && (occGrid->array)[(int)point.x][(int)point.y][(int)point.z] == 0.0);
 }
 
 // Function to check if a point is the goal
 bool isGoal(Point3D point, Point3D goal)
 {
     return (point.x == goal.x && point.y == goal.y && point.z == goal.z);
+}
+
+// Function to calculate constrained Euclidean distance between two points
+float constrainedEuclideanDistance(Point3D a, Point3D b, OccupancyGrid *occGrid)
+{
+    int del_x = b.x - a.x;
+    int del_y = b.y - a.y;
+    int del_z = b.z - a.z;
+    Point3D ax = {a.x + del_x, a.y, a.z};
+    Point3D ay = {a.x, a.y + del_y, a.z};
+    Point3D az = {a.x, a.y, a.z + del_z};
+    if (del_x > 0)
+    {
+        if (del_y > 0)
+        {
+            if (del_z > 0)
+            {
+                if (!isPassable(occGrid, ax) && !isPassable(occGrid, ay) && !isPassable(occGrid, az))
+                {
+                    return INFINITY;
+                }
+            }
+            else
+            {
+                if (!isPassable(occGrid, ax) && !isPassable(occGrid, ay))
+                {
+                    return INFINITY;
+                }
+            }
+        }
+        if (del_z > 0)
+        {
+            if (!isPassable(occGrid, ax) && !isPassable(occGrid, az))
+            {
+                return INFINITY;
+            }
+        }
+    }
+    else if (del_y > 0)
+    {
+        if (del_z > 0)
+        {
+            if (!isPassable(occGrid, ay) && !isPassable(occGrid, az))
+            {
+                return INFINITY;
+            }
+        }
+    }
+
+    // Evaluates to 1
+    return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2) + pow(a.z - b.z, 2));
 }
 
 // Function to reconstruct the path from the goal node to the start node
@@ -156,7 +207,7 @@ void reconstructPath(Node *currentNode, Path *path)
 }
 
 // A* algorithm implementation
-Node *aStar(Point3D start, Point3D goal, Path *path, OccupancyGrid *occ_grid)
+Node *aStar(Point3D start, Point3D goal, Path *path, OccupancyGrid *occGrid)
 {
     if (!isValidPoint(start) || !isValidPoint(goal))
     {
@@ -164,7 +215,7 @@ Node *aStar(Point3D start, Point3D goal, Path *path, OccupancyGrid *occ_grid)
         return NULL;
     }
 
-    if (!isPassable(occ_grid, start) || !isPassable(occ_grid, goal))
+    if (!isPassable(occGrid, start) || !isPassable(occGrid, goal))
     {
         printf("Start or goal point is an obstacle\n");
         return NULL;
@@ -220,9 +271,9 @@ Node *aStar(Point3D start, Point3D goal, Path *path, OccupancyGrid *occ_grid)
 
                     Point3D neighborPoint = {currentNode->point.x + dx, currentNode->point.y + dy, currentNode->point.z + dz};
 
-                    if (isValidPoint(neighborPoint) && isPassable(occ_grid, neighborPoint))
+                    if (isValidPoint(neighborPoint) && isPassable(occGrid, neighborPoint))
                     {
-                        float tentativeG = currentNode->g + euclideanDistance(currentNode->point, neighborPoint);
+                        float tentativeG = currentNode->g + constrainedEuclideanDistance(currentNode->point, neighborPoint, occGrid);
 
                         if (tentativeG < gScore[(int)neighborPoint.x][(int)neighborPoint.y][(int)neighborPoint.z])
                         {
@@ -247,12 +298,40 @@ Node *aStar(Point3D start, Point3D goal, Path *path, OccupancyGrid *occ_grid)
     return NULL;
 }
 
-extern void planner(float start[3], float end[3], Path *path, OccupancyGrid *occ_grid)
+// For debugging within C
+int main()
+{
+    // Define start and end points
+    Point3D start_3d = {0.0, 0.0, 0.0};
+    Point3D end_3d = {5.0, 6.0, 5.0};
+    Path *path = (Path *)malloc(sizeof(Path));
+
+    OccupancyGrid *occGrid = (OccupancyGrid *)malloc(sizeof(OccupancyGrid));
+    for (int i = 0; i < HORIZON_LEN; i++)
+    {
+        for (int j = 0; j < HORIZON_LEN; j++)
+        {
+            for (int k = 0; k < HORIZON_LEN; k++)
+            {
+
+                occGrid->array[i][j][k] = 0;
+                if (i == j && j == k && i != 0)
+                {
+                    occGrid->array[i][j][k] = 1;
+                }
+            }
+        }
+    }
+    // Calculate straight line path
+    aStar(start_3d, end_3d, path, occGrid);
+}
+
+extern void planner(float start[3], float end[3], Path *path, OccupancyGrid *occGrid)
 {
     // Define start and end points
     Point3D start_3d = {start[0], start[1], start[2]};
     Point3D end_3d = {end[0], end[1], end[2]};
 
     // Calculate straight line path
-    aStar(start_3d, end_3d, path, occ_grid);
+    aStar(start_3d, end_3d, path, occGrid);
 }

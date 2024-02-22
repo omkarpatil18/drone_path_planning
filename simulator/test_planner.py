@@ -7,7 +7,7 @@ sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
 from utils import C_IMPL_DIR
 from binvox_rw import read_as_3d_array
 
-HORIZON_LEN = 100
+HORIZON_LEN = 10
 
 
 class CTypesGrid(ctypes.Structure):
@@ -27,7 +27,7 @@ class TestPlanner:
     def __init__(self, dim, density, planner="") -> None:
         self.dim = dim
         self.density = density
-        self.dir_path = f"/home/local/ASUAD/opatil3/src/drone_path_planning/simulator/envs/dim_{self.dim}/density_{self.density}"
+        self.dir_path = f"/home/local/ASUAD/opatil3/src/drone_path_planning/simulator/env/dim_{self.dim}/density_{self.density}"
         so_file = f"{C_IMPL_DIR}/{planner}/{planner}_{HORIZON_LEN}.so"
         planner_lib = ctypes.cdll.LoadLibrary(so_file)
         self.planner = planner_lib.planner
@@ -79,16 +79,18 @@ class TestPlanner:
             ctypes.byref(path),
             ctypes.byref(self.occ_grid_obj),
         )
-        self.path_arr = np.ndarray((path.path_len, 3), "f", path.array, order="C")
+        # self.path_arr = np.ndarray((path.path_len, 3), "f", path.array, order="C")
         if path.path_len != 0:
             return True
+        return False
 
     def test(self):
         for idx in range(100):
+            print(f"***************************** starting level {idx}")
             self.set_occupancy_grid(idx)
             self.path_found.append(self.plan())
         print(self.path_found)
 
 
-tp = TestPlanner(dim=HORIZON_LEN, density=0.01, planner="mikami")
+tp = TestPlanner(dim=HORIZON_LEN, density=0.3, planner="mikami")
 tp.test()

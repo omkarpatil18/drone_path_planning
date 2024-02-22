@@ -572,7 +572,7 @@ void *mikamiTabuchi(Point3D start, Point3D dst, Path *path, OccupancyGrid *occGr
     PathFromIntersection *pathToDst = (PathFromIntersection *)malloc(sizeof(PathFromIntersection));
     pathToDst->size = 0;
 
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 5; i++)
     {
         int level = i;
         printf("Starting level %d\n", level);
