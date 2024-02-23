@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <math.h>
+#include <time.h>
 #include "/home/local/ASUAD/opatil3/src/drone_path_planning/planners/c_impl/mikami/structs.h"
 
 void trimLineX(LineX *, ObstacleArray *);
@@ -731,12 +732,16 @@ int main()
 }
 
 // Called from Python
-extern void planner(float start[3], float end[3], Path *path, OccupancyGrid *occGrid)
+extern double planner(float start[3], float end[3], Path *path, OccupancyGrid *occGrid)
 {
     // Define start and end points
     Point3D start_3d = {start[0], start[1], start[2]};
     Point3D end_3d = {end[0], end[1], end[2]};
 
     // Calculate straight line path
+    clock_t beginT = clock();
     mikamiTabuchi(start_3d, end_3d, path, occGrid);
+    clock_t endT = clock();
+    double time_spent = (double)(endT - beginT) / CLOCKS_PER_SEC;
+    return time_spent;
 }

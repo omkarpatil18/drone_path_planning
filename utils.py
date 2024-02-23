@@ -119,8 +119,8 @@ class Path(ctypes.Structure):
 
 
 ######### Code to test the calling of C a-star planner in Python #########
-# # Load c function
-# so_file = f"{C_IMPL_DIR}/astar/astar.so"
+# Load c function
+# so_file = f"{C_IMPL_DIR}/astar/astar_10.so"
 # my_functions = ctypes.cdll.LoadLibrary(so_file)
 # main = my_functions.planner
 # array_type = ctypes.c_float * 3
@@ -132,7 +132,7 @@ class Path(ctypes.Structure):
 #     ctypes.POINTER(Path),
 #     ctypes.POINTER(OccupancyGrid),
 # )
-# main.restype = None
+# main.restype = ctypes.c_double
 
 # # Call the c code
 # path = Path()
@@ -145,11 +145,13 @@ class Path(ctypes.Structure):
 #                 occ_grid.array[i][j][k] = 1
 
 
-# main(
-#     array_type(*[0.0, 0.0, 0.0]),
-#     array_type(*[5.0, 6.0, 5.0]),
-#     ctypes.byref(path),
-#     ctypes.byref(occ_grid),
+# print(
+#     main(
+#         array_type(*[0.0, 0.0, 0.0]),
+#         array_type(*[5.0, 6.0, 5.0]),
+#         ctypes.byref(path),
+#         ctypes.byref(occ_grid),
+#     )
 # )
 # print(np.ndarray((path.path_len, 3), "f", path.array, order="C"))
 

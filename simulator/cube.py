@@ -27,22 +27,37 @@ class CTypesPath(ctypes.Structure):
 class Cube:
     """Simulates a cube representing an environment with obstacles"""
 
-    def __init__(self, density, horizon_len) -> None:
+    def __init__(self, density, horizon_len, obs_size=1) -> None:
         self.density = density
         self.horizon_len = horizon_len
-        self.dir_path = f"/home/local/ASUAD/opatil3/src/drone_path_planning/simulator/env/dim_{HORIZON_LEN}/density_{self.density}/"
+        self.dir_path = f"/home/local/ASUAD/opatil3/src/drone_path_planning/simulator/env_{str(obs_size)[0]}x/dim_{HORIZON_LEN}/density_{self.density}/"
         if not os.path.isdir(self.dir_path):
             os.makedirs(self.dir_path)
-        self.create_cube()
+        self.create_cube(obs_size)
 
-    def create_cube(self):
-        self.cube = np.random.choice(
-            a=[False, True],
-            size=[self.horizon_len, self.horizon_len, self.horizon_len],
-            replace=True,
-            p=[1 - self.density, self.density],
-        )
-        return self.cube
+    def create_cube(self, obs_size):
+        if obs_size == 1:
+            self.cube = np.random.choice(
+                a=[False, True],
+                size=[self.horizon_len, self.horizon_len, self.horizon_len],
+                replace=True,
+                p=[1 - self.density, self.density],
+            )
+        else:
+            self.cube = np.zeros(
+                (self.horizon_len, self.horizon_len, self.horizon_len), dtype=int
+            )
+            while np.mean(self.cube) < self.density:
+                idx = np.random.choice(self.horizon_len - obs_size // 2, 3)
+                self.fill_volume(idx, obs_size)
+
+    def fill_volume(self, idx, obs_size):
+        delta = obs_size // 2
+        idx_x, idx_y, idx_z = idx
+        for i in range(-delta, delta):
+            for j in range(-delta, delta):
+                for k in range(-delta, delta):
+                    self.cube[idx_x + i][idx_y + j][idx_z + k] = 1
 
     def check_for_valid_path(self):
         """
@@ -123,10 +138,11 @@ class Cube:
             write(voxels, fp)
 
 
+OBS_SIZE = 10
 for idx in range(100):
     path_found = False
     while not path_found:
-        c = Cube(density=0.05, horizon_len=HORIZON_LEN)
+        c = Cube(density=0.05, horizon_len=HORIZON_LEN, obs_size=OBS_SIZE)
         path_found = c.check_for_valid_path()
         # path_found = True
         if path_found:
