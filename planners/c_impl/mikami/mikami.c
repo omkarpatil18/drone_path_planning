@@ -28,6 +28,8 @@ LineSetX *createLineSetX(Point3D p3D, ObstacleArray *obsArray)
     lineSet->array[0].z = p3D.z;
     lineSet->array[0].xStart = 0;
     lineSet->array[0].xEnd = HORIZON_LEN - 1;
+    lineSet->array[0].parentLineY = NULL;
+    lineSet->array[0].parentLineZ = NULL;
     trimLineX(&lineSet->array[0], obsArray);
     return lineSet;
 }
@@ -44,6 +46,8 @@ LineSetY *createLineSetY(Point3D p3D, ObstacleArray *obsArray)
     lineSet->array[0].z = p3D.z;
     lineSet->array[0].yStart = 0;
     lineSet->array[0].yEnd = HORIZON_LEN - 1;
+    lineSet->array[0].parentLineX = NULL;
+    lineSet->array[0].parentLineZ = NULL;
     trimLineY(&lineSet->array[0], obsArray);
     return lineSet;
 }
@@ -60,6 +64,8 @@ LineSetZ *createLineSetZ(Point3D p3D, ObstacleArray *obsArray)
     lineSet->array[0].z = p3D.z;
     lineSet->array[0].zStart = 0;
     lineSet->array[0].zEnd = HORIZON_LEN - 1;
+    lineSet->array[0].parentLineY = NULL;
+    lineSet->array[0].parentLineX = NULL;
     trimLineZ(&lineSet->array[0], obsArray);
     return lineSet;
 }
@@ -466,19 +472,24 @@ void spawnLines(LineSetX *lineSetX, LineSetY *lineSetY, LineSetZ *lineSetZ, Obst
         LineX lineX = lineSetX->array[i];
         for (int j = lineX.xStart; j <= lineX.xEnd; j++)
         {
-            if (j != lineX.x)
+            if (!(j == lineX.x && lineX.parentLineY == NULL && lineX.parentLineZ == NULL))
             {
-                LineY lineY = createLineY(j, lineX.y, lineX.z, obsArray);
-                lineY.parentLineX = &lineSetX->array[i];
-                lineY.parentLineZ = NULL;
-                lineSetY->array[lineSetY->size] = lineY;
-                lineSetY->size++;
-
-                LineZ lineZ = createLineZ(j, lineX.y, lineX.z, obsArray);
-                lineZ.parentLineX = &lineSetX->array[i];
-                lineZ.parentLineY = NULL;
-                lineSetZ->array[lineSetZ->size] = lineZ;
-                lineSetZ->size++;
+                if (!(j == lineX.x && lineX.parentLineY != NULL) && !(j == lineX.x && lineX.parentLineZ != NULL && lineX.parentLineZ->parentLineY != NULL))
+                {
+                    LineY lineY = createLineY(j, lineX.y, lineX.z, obsArray);
+                    lineY.parentLineX = &(lineSetX->array[i]);
+                    lineY.parentLineZ = NULL;
+                    lineSetY->array[lineSetY->size] = lineY;
+                    lineSetY->size++;
+                }
+                if (!(j == lineX.x && lineX.parentLineZ != NULL) && !(j == lineX.x && lineX.parentLineY != NULL && lineX.parentLineY->parentLineZ != NULL))
+                {
+                    LineZ lineZ = createLineZ(j, lineX.y, lineX.z, obsArray);
+                    lineZ.parentLineX = &(lineSetX->array[i]);
+                    lineZ.parentLineY = NULL;
+                    lineSetZ->array[lineSetZ->size] = lineZ;
+                    lineSetZ->size++;
+                }
             }
         }
     }
@@ -488,19 +499,24 @@ void spawnLines(LineSetX *lineSetX, LineSetY *lineSetY, LineSetZ *lineSetZ, Obst
         LineY lineY = lineSetY->array[i];
         for (int j = lineY.yStart; j <= lineY.yEnd; j++)
         {
-            if (j != lineY.y)
+            if (!(j == lineY.y && lineY.parentLineX == NULL && lineY.parentLineZ == NULL))
             {
-                LineX lineX = createLineX(lineY.x, j, lineY.z, obsArray);
-                lineX.parentLineY = &lineSetY->array[i];
-                lineX.parentLineZ = NULL;
-                lineSetX->array[lineSetX->size] = lineX;
-                lineSetX->size++;
-
-                LineZ lineZ = createLineZ(lineY.x, j, lineY.z, obsArray);
-                lineZ.parentLineY = &lineSetY->array[i];
-                lineZ.parentLineX = NULL;
-                lineSetZ->array[lineSetZ->size] = lineZ;
-                lineSetZ->size++;
+                if (!(j == lineY.y && lineY.parentLineX != NULL) && !(j == lineY.y && lineY.parentLineZ != NULL && lineY.parentLineZ->parentLineX != NULL))
+                {
+                    LineX lineX = createLineX(lineY.x, j, lineY.z, obsArray);
+                    lineX.parentLineY = &(lineSetY->array[i]);
+                    lineX.parentLineZ = NULL;
+                    lineSetX->array[lineSetX->size] = lineX;
+                    lineSetX->size++;
+                }
+                if (!(j == lineY.y && lineY.parentLineZ != NULL) && !(j == lineY.y && lineY.parentLineX != NULL && lineY.parentLineX->parentLineZ != NULL))
+                {
+                    LineZ lineZ = createLineZ(lineY.x, j, lineY.z, obsArray);
+                    lineZ.parentLineY = &(lineSetY->array[i]);
+                    lineZ.parentLineX = NULL;
+                    lineSetZ->array[lineSetZ->size] = lineZ;
+                    lineSetZ->size++;
+                }
             }
         }
     }
@@ -510,19 +526,24 @@ void spawnLines(LineSetX *lineSetX, LineSetY *lineSetY, LineSetZ *lineSetZ, Obst
         LineZ lineZ = lineSetZ->array[i];
         for (int j = lineZ.zStart; j <= lineZ.zEnd; j++)
         {
-            if (j != lineZ.z)
+            if (!(j == lineZ.z && lineZ.parentLineY == NULL && lineZ.parentLineX == NULL))
             {
-                LineY lineY = createLineY(lineZ.x, lineZ.y, j, obsArray);
-                lineY.parentLineZ = &lineSetZ->array[i];
-                lineY.parentLineX = NULL;
-                lineSetY->array[lineSetY->size] = lineY;
-                lineSetY->size++;
-
-                LineX lineX = createLineX(lineZ.x, lineZ.y, j, obsArray);
-                lineX.parentLineZ = &lineSetZ->array[i];
-                lineX.parentLineY = NULL;
-                lineSetX->array[lineSetX->size] = lineX;
-                lineSetX->size++;
+                if (!(j == lineZ.z && lineZ.parentLineY != NULL) && !(j == lineZ.z && lineZ.parentLineX != NULL && lineZ.parentLineX->parentLineY != NULL))
+                {
+                    LineY lineY = createLineY(lineZ.x, lineZ.y, j, obsArray);
+                    lineY.parentLineZ = &(lineSetZ->array[i]);
+                    lineY.parentLineX = NULL;
+                    lineSetY->array[lineSetY->size] = lineY;
+                    lineSetY->size++;
+                }
+                if (!(j == lineZ.z && lineZ.parentLineX != NULL) && !(j == lineZ.z && lineZ.parentLineY != NULL && lineZ.parentLineY->parentLineX != NULL))
+                {
+                    LineX lineX = createLineX(lineZ.x, lineZ.y, j, obsArray);
+                    lineX.parentLineZ = &(lineSetZ->array[i]);
+                    lineX.parentLineY = NULL;
+                    lineSetX->array[lineSetX->size] = lineX;
+                    lineSetX->size++;
+                }
             }
         }
     }
@@ -571,8 +592,9 @@ void *mikamiTabuchi(Point3D start, Point3D dst, Path *path, OccupancyGrid *occGr
     pathToSrc->size = 0;
     PathFromIntersection *pathToDst = (PathFromIntersection *)malloc(sizeof(PathFromIntersection));
     pathToDst->size = 0;
+    path->path_len = 0;
 
-    for (int i = 0; i < 5; i++)
+    for (int i = 0; i < 4; i++)
     {
         int level = i;
         printf("Starting level %d\n", level);
@@ -658,6 +680,10 @@ void *mikamiTabuchi(Point3D start, Point3D dst, Path *path, OccupancyGrid *occGr
     {
         printf("No path found.\n");
     }
+    else
+    {
+        free(interS);
+    }
     freeMemory(occGrid, obsArray, srcLineSetX, dstLineSetX, srcLineSetY, dstLineSetY, srcLineSetZ, dstLineSetZ, pathToSrc, pathToDst, interS);
     return NULL;
 }
@@ -674,7 +700,6 @@ void freeMemory(OccupancyGrid *occGrid, ObstacleArray *obsArray, LineSetX *srcLi
     free(dstLineSetZ);
     free(pathToSrc);
     free(pathToDst);
-    free(interS);
 }
 
 // For debugging within C

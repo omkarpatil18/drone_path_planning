@@ -8,7 +8,7 @@ sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
 from binvox_rw import Voxels, write, sparse_to_dense
 from utils import C_IMPL_DIR
 
-HORIZON_LEN = 10
+HORIZON_LEN = 100
 
 
 class CTypesGrid(ctypes.Structure):
@@ -126,8 +126,9 @@ class Cube:
 for idx in range(100):
     path_found = False
     while not path_found:
-        c = Cube(density=0.70, horizon_len=HORIZON_LEN)
+        c = Cube(density=0.05, horizon_len=HORIZON_LEN)
         path_found = c.check_for_valid_path()
+        # path_found = True
         if path_found:
             c.save_env_binvox(idx)
             c.save_path_binvox(idx)

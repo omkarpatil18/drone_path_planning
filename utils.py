@@ -1,9 +1,15 @@
+import os
+import sys
 import ctypes
 import numpy as np
 from constants import PLAN_FREQ, HORIZON_LEN, SCALE
 
 C_IMPL_DIR = "/home/local/ASUAD/opatil3/src/drone_path_planning/planners/c_impl"
 # cc -fPIC -g -shared -o mikami.so mikami.c
+
+sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
+from binvox_rw import read_as_3d_array
+
 
 class TransformCoordinates:
     """Transform coordinates from world frame to occupancy grid frame and the other-way."""
@@ -81,7 +87,7 @@ class OccupancyGrid(ctypes.Structure):
 class Path(ctypes.Structure):
     _fields_ = [
         ("path_len", ctypes.c_int),
-        ("array", (ctypes.c_float * 3) * (PLAN_FREQ * 3)),
+        ("array", (ctypes.c_float * 3) * (HORIZON_LEN * HORIZON_LEN * HORIZON_LEN)),
     ]
 
 
@@ -148,9 +154,18 @@ class Path(ctypes.Structure):
 # print(np.ndarray((path.path_len, 3), "f", path.array, order="C"))
 
 
-######### Code to test the calling of C a-star planner in Python #########
+######### Code to test the calling of C mikami planner in Python #########
 # # Load c function
-# so_file = f"{C_IMPL_DIR}/mikami/mikami.so"
+# density = 0.1
+# idx = 31
+# start_pose = [0, 0, 0]
+# goal_pose = [
+#     HORIZON_LEN - 1,
+#     HORIZON_LEN - 1,
+#     HORIZON_LEN - 1,
+# ]
+# so_file = f"{C_IMPL_DIR}/mikami/mikami_10.so"
+# dir_path = f"/home/local/ASUAD/opatil3/src/drone_path_planning/simulator/env/dim_{HORIZON_LEN}/density_{density}"
 # my_functions = ctypes.cdll.LoadLibrary(so_file)
 # main = my_functions.planner
 # array_type = ctypes.c_float * 3
@@ -164,21 +179,26 @@ class Path(ctypes.Structure):
 # )
 # main.restype = None
 
-# # Call the c code
 # path = Path()
-# occ_grid = OccupancyGrid()
+# occ_grid_obj = OccupancyGrid()
+
+# with open(os.path.join(dir_path, f"env_{idx}.binvox"), "rb") as f:
+#     occ_grid = read_as_3d_array(f)
+
 # for i in range(HORIZON_LEN):
 #     for j in range(HORIZON_LEN):
 #         for k in range(HORIZON_LEN):
-#             occ_grid.array[i][j][k] = 0
-#             if i == j == k and i != 0:
-#                 occ_grid.array[i][j][k] = 1
+#             occ_grid_obj.array[i][j][k] = 1 if occ_grid.data[i][j][k] else 0
+
+
+# occ_grid_obj.array[start_pose[0]][start_pose[1]][start_pose[2]] = 0
+# occ_grid_obj.array[goal_pose[0]][goal_pose[1]][goal_pose[2]] = 0
 
 
 # main(
-#     array_type(*[0.0, 0.0, 0.0]),
-#     array_type(*[1.0, 57.0, 90.0]),
+#     array_type(*start_pose),
+#     array_type(*goal_pose),
 #     ctypes.byref(path),
-#     ctypes.byref(occ_grid),
+#     ctypes.byref(occ_grid_obj),
 # )
 # print(np.ndarray((path.path_len, 3), "f", path.array, order="C"))

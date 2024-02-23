@@ -10,7 +10,8 @@
             "request": "launch",
             "program": "/home/local/ASUAD/opatil3/anaconda3/envs/act_model/bin/python",
             "args": [
-                "/home/local/ASUAD/opatil3/src/drone_path_planning/utils.py"
+                "/home/local/ASUAD/opatil3/src/drone_path_planning/simulator/test_planner.py"
+                // "/home/local/ASUAD/opatil3/src/drone_path_planning/utils.py"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

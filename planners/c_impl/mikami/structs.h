@@ -38,7 +38,7 @@ struct LineZ
 // X LineSet implementation
 typedef struct
 {
-    LineX array[2 * HORIZON_LEN * HORIZON_LEN * HORIZON_LEN];
+    LineX array[HORIZON_LEN * HORIZON_LEN * HORIZON_LEN * HORIZON_LEN];
     int prevSize; // for the prev level
     int size;
 } LineSetX;
@@ -46,7 +46,7 @@ typedef struct
 // Y LineSet implementation
 typedef struct
 {
-    LineY array[2 * HORIZON_LEN * HORIZON_LEN * HORIZON_LEN];
+    LineY array[HORIZON_LEN * HORIZON_LEN * HORIZON_LEN * HORIZON_LEN];
     int prevSize; // for the prev level
     int size;
 } LineSetY;
@@ -54,7 +54,7 @@ typedef struct
 // Z LineSet implementation
 typedef struct
 {
-    LineZ array[2 * HORIZON_LEN * HORIZON_LEN * HORIZON_LEN];
+    LineZ array[HORIZON_LEN * HORIZON_LEN * HORIZON_LEN * HORIZON_LEN];
     int prevSize; // for the prev level
     int size;
 } LineSetZ;
