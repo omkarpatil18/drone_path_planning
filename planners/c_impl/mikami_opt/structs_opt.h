@@ -2,11 +2,19 @@
 #ifndef _structs_h
 #define _structs_h
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <math.h>
+#include <time.h>
 #include "/home/local/ASUAD/opatil3/src/drone_path_planning/planners/c_impl/header.h"
 
 typedef struct LineX LineX;
 typedef struct LineY LineY;
 typedef struct LineZ LineZ;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // X Line implementation
 struct LineX
@@ -35,30 +43,39 @@ struct LineZ
     int zStart, zEnd;
 };
 
-// X LineSet implementation
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Struct to store Pointers to the set of unique lines
 typedef struct
 {
-    // Size of mem assigned empirically
-    LineX array[10 * HORIZON_LEN * HORIZON_LEN * HORIZON_LEN * HORIZON_LEN];
+    // Number of unique lines in the worst case (unit len)
+    bool included[HORIZON_LEN][HORIZON_LEN][HORIZON_LEN];
+    LineX array[HORIZON_LEN * HORIZON_LEN * HORIZON_LEN];
     int prevSize; // for the prev level
     int size;
-} LineSetX;
+} LinePointersX;
 
 // Y LineSet implementation
 typedef struct
 {
-    LineY array[10 * HORIZON_LEN * HORIZON_LEN * HORIZON_LEN * HORIZON_LEN];
+    bool included[HORIZON_LEN][HORIZON_LEN][HORIZON_LEN];
+    LineY array[HORIZON_LEN * HORIZON_LEN * HORIZON_LEN];
     int prevSize; // for the prev level
     int size;
-} LineSetY;
+} LinePointersY;
 
 // Z LineSet implementation
 typedef struct
 {
-    LineZ array[10 * HORIZON_LEN * HORIZON_LEN * HORIZON_LEN * HORIZON_LEN];
+    bool included[HORIZON_LEN][HORIZON_LEN][HORIZON_LEN];
+    LineZ array[HORIZON_LEN * HORIZON_LEN * HORIZON_LEN];
     int prevSize; // for the prev level
     int size;
-} LineSetZ;
+} LinePointersZ;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Struct for storing the set of obstacles
 typedef struct
