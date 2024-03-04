@@ -1,4 +1,4 @@
-#include "/home/local/ASUAD/opatil3/src/drone_path_planning/planners/c_impl/mikami_opt/structs_opt.h"
+#include "/home/local/ASUAD/opatil3/src/drone_path_planning/planners/c_impl/mikami/structs.h"
 
 void trimLineX(LineX *, ObstacleArray *);
 void trimLineY(LineY *, ObstacleArray *);
@@ -595,7 +595,11 @@ void *mikamiTabuchi(Point3D start, Point3D dst, Path *path, OccupancyGrid *occGr
     LinePointersY *dstLinePointersY = createLinePointersY(dst, obsArray);
 
     LinePointersZ *srcLinePointersZ = createLinePointersZ(start, obsArray);
-    LinePointersZ *dstLinePointersZ = createLinePointersZ(dst, obsArray);
+    // LinePointersZ *dstLinePointersZ = createLinePointersZ(dst, obsArray);
+    // change for airsim
+    LinePointersZ *dstLinePointersZ = (LinePointersZ *)calloc(1, sizeof(LinePointersZ));
+    dstLinePointersZ->prevSize = 0;
+    dstLinePointersZ->size = 0;
 
     // Local data structures to store the path
     Intersection *interS = NULL;
@@ -610,7 +614,6 @@ void *mikamiTabuchi(Point3D start, Point3D dst, Path *path, OccupancyGrid *occGr
         int level = i;
         printf("Starting level %d\n", level);
 
-        // Find intersections with the current set of X lines from src
         interS = lineSetIntersectionXY(srcLinePointersX, dstLinePointersY);
         if (interS != NULL)
         {
@@ -622,24 +625,23 @@ void *mikamiTabuchi(Point3D start, Point3D dst, Path *path, OccupancyGrid *occGr
             return NULL;
         }
 
-        interS = lineSetIntersectionXZ(srcLinePointersX, dstLinePointersZ);
-        if (interS != NULL)
-        {
-            printf("Found intersection in XZ\n");
-            backTraceX(interS->lineX, pathToSrc);
-            backTraceZ(interS->lineZ, pathToDst);
-            setPath(pathToSrc, interS->p3D, pathToDst, path);
-            freeMemory(occGrid, obsArray, srcLinePointersX, dstLinePointersX, srcLinePointersY, dstLinePointersY, srcLinePointersZ, dstLinePointersZ, pathToSrc, pathToDst, interS);
-            return NULL;
-        }
-
-        // Find intersections with the current set of Y lines from src
         interS = lineSetIntersectionXY(dstLinePointersX, srcLinePointersY);
         if (interS != NULL)
         {
             printf("Found intersection in XY\n");
             backTraceX(interS->lineX, pathToDst);
             backTraceY(interS->lineY, pathToSrc);
+            setPath(pathToSrc, interS->p3D, pathToDst, path);
+            freeMemory(occGrid, obsArray, srcLinePointersX, dstLinePointersX, srcLinePointersY, dstLinePointersY, srcLinePointersZ, dstLinePointersZ, pathToSrc, pathToDst, interS);
+            return NULL;
+        }
+
+        interS = lineSetIntersectionXZ(srcLinePointersX, dstLinePointersZ);
+        if (interS != NULL)
+        {
+            printf("Found intersection in XZ\n");
+            backTraceX(interS->lineX, pathToSrc);
+            backTraceZ(interS->lineZ, pathToDst);
             setPath(pathToSrc, interS->p3D, pathToDst, path);
             freeMemory(occGrid, obsArray, srcLinePointersX, dstLinePointersX, srcLinePointersY, dstLinePointersY, srcLinePointersZ, dstLinePointersZ, pathToSrc, pathToDst, interS);
             return NULL;

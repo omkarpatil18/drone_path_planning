@@ -1,9 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <math.h>
-#include <time.h>
-#include "/home/local/ASUAD/opatil3/src/drone_path_planning/planners/c_impl/mikami/structs.h"
+#include "/home/local/ASUAD/opatil3/src/drone_path_planning/planners/c_impl/mikami/structs_opt.h"
 
 void trimLineX(LineX *, ObstacleArray *);
 void trimLineY(LineY *, ObstacleArray *);
@@ -11,16 +6,16 @@ void trimLineZ(LineZ *, ObstacleArray *);
 void backTraceX(LineX *, PathFromIntersection *);
 void backTraceY(LineY *, PathFromIntersection *);
 void backTraceZ(LineZ *, PathFromIntersection *);
-void freeMemory(OccupancyGrid *, ObstacleArray *, LineSetX *, LineSetX *, LineSetY *, LineSetY *, LineSetZ *, LineSetZ *, PathFromIntersection *, PathFromIntersection *, Intersection *);
+void freeMemory(OccupancyGrid *, ObstacleArray *, LinePointersX *, LinePointersX *, LinePointersY *, LinePointersY *, LinePointersZ *, LinePointersZ *, PathFromIntersection *, PathFromIntersection *, Intersection *);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////// Create initial linesets from src/dst ////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Function to create a new lineSet for X
-LineSetX *createLineSetX(Point3D p3D, ObstacleArray *obsArray)
+LinePointersX *createLinePointersX(Point3D p3D, ObstacleArray *obsArray)
 {
-    LineSetX *lineSet = (LineSetX *)malloc(sizeof(LineSetX));
+    LinePointersX *lineSet = (LinePointersX *)calloc(1, sizeof(LinePointersX));
     lineSet->prevSize = 0;
     lineSet->size = 1;
 
@@ -32,13 +27,17 @@ LineSetX *createLineSetX(Point3D p3D, ObstacleArray *obsArray)
     lineSet->array[0].parentLineY = NULL;
     lineSet->array[0].parentLineZ = NULL;
     trimLineX(&lineSet->array[0], obsArray);
+    for (int i = lineSet->array[0].xStart; i <= lineSet->array[0].xEnd; i++)
+    {
+        lineSet->included[i][(int)p3D.y][(int)p3D.z] = true;
+    }
     return lineSet;
 }
 
 // Function to create a new lineSet for Y
-LineSetY *createLineSetY(Point3D p3D, ObstacleArray *obsArray)
+LinePointersY *createLinePointersY(Point3D p3D, ObstacleArray *obsArray)
 {
-    LineSetY *lineSet = (LineSetY *)malloc(sizeof(LineSetY));
+    LinePointersY *lineSet = (LinePointersY *)calloc(1, sizeof(LinePointersY));
     lineSet->prevSize = 0;
     lineSet->size = 1;
 
@@ -50,13 +49,17 @@ LineSetY *createLineSetY(Point3D p3D, ObstacleArray *obsArray)
     lineSet->array[0].parentLineX = NULL;
     lineSet->array[0].parentLineZ = NULL;
     trimLineY(&lineSet->array[0], obsArray);
+    for (int i = lineSet->array[0].yStart; i <= lineSet->array[0].yEnd; i++)
+    {
+        lineSet->included[(int)p3D.x][i][(int)p3D.z] = true;
+    }
     return lineSet;
 }
 
 // Function to create a new lineSet for Z
-LineSetZ *createLineSetZ(Point3D p3D, ObstacleArray *obsArray)
+LinePointersZ *createLinePointersZ(Point3D p3D, ObstacleArray *obsArray)
 {
-    LineSetZ *lineSet = (LineSetZ *)malloc(sizeof(LineSetZ));
+    LinePointersZ *lineSet = (LinePointersZ *)calloc(1, sizeof(LinePointersZ));
     lineSet->prevSize = 0;
     lineSet->size = 1;
 
@@ -68,6 +71,10 @@ LineSetZ *createLineSetZ(Point3D p3D, ObstacleArray *obsArray)
     lineSet->array[0].parentLineY = NULL;
     lineSet->array[0].parentLineX = NULL;
     trimLineZ(&lineSet->array[0], obsArray);
+    for (int i = lineSet->array[0].zStart; i <= lineSet->array[0].zEnd; i++)
+    {
+        lineSet->included[(int)p3D.x][(int)p3D.y][i] = true;
+    }
     return lineSet;
 }
 
@@ -261,19 +268,19 @@ Point3D lineIntersectionZY(LineZ lineZ, LineY lineY)
 }
 
 // Get intersection of lineSet X and lineSet Y
-Intersection *lineSetIntersectionXY(LineSetX *lineSetX, LineSetY *lineSetY)
+Intersection *lineSetIntersectionXY(LinePointersX *linePointersX, LinePointersY *linePointersY)
 {
-    for (int i = lineSetX->size - 1; i >= 0; i--)
+    for (int i = linePointersX->size - 1; i >= 0; i--)
     {
-        for (int j = lineSetY->size - 1; j >= 0; j--)
+        for (int j = linePointersY->size - 1; j >= 0; j--)
         {
-            Point3D p3D = lineIntersectionXY(lineSetX->array[i], lineSetY->array[j]);
+            Point3D p3D = lineIntersectionXY(linePointersX->array[i], linePointersY->array[j]);
             if (p3D.x != -1 && p3D.y != -1 && p3D.z != -1)
             {
                 Intersection *interS = (Intersection *)malloc(sizeof(Intersection));
                 interS->p3D = p3D;
-                interS->lineX = &lineSetX->array[i];
-                interS->lineY = &lineSetY->array[j];
+                interS->lineX = &linePointersX->array[i];
+                interS->lineY = &linePointersY->array[j];
                 interS->lineZ = NULL;
                 return interS;
             }
@@ -283,20 +290,20 @@ Intersection *lineSetIntersectionXY(LineSetX *lineSetX, LineSetY *lineSetY)
 }
 
 // Get intersection of lineSet X and lineSet Z
-Intersection *lineSetIntersectionXZ(LineSetX *lineSetX, LineSetZ *lineSetZ)
+Intersection *lineSetIntersectionXZ(LinePointersX *linePointersX, LinePointersZ *linePointersZ)
 {
-    for (int i = lineSetX->size - 1; i >= 0; i--)
+    for (int i = linePointersX->size - 1; i >= 0; i--)
     {
-        for (int j = lineSetZ->size - 1; j >= 0; j--)
+        for (int j = linePointersZ->size - 1; j >= 0; j--)
         {
-            Point3D p3D = lineIntersectionXZ(lineSetX->array[i], lineSetZ->array[j]);
+            Point3D p3D = lineIntersectionXZ(linePointersX->array[i], linePointersZ->array[j]);
             if (p3D.x != -1 && p3D.y != -1 && p3D.z != -1)
             {
                 Intersection *interS = (Intersection *)malloc(sizeof(Intersection));
                 interS->p3D = p3D;
-                interS->lineX = &lineSetX->array[i];
+                interS->lineX = &linePointersX->array[i];
                 interS->lineY = NULL;
-                interS->lineZ = &lineSetZ->array[j];
+                interS->lineZ = &linePointersZ->array[j];
                 return interS;
             }
         }
@@ -305,20 +312,20 @@ Intersection *lineSetIntersectionXZ(LineSetX *lineSetX, LineSetZ *lineSetZ)
 }
 
 // Get intersection of lineSet Z and lineSet Y
-Intersection *lineSetIntersectionZY(LineSetZ *lineSetZ, LineSetY *lineSetY)
+Intersection *lineSetIntersectionZY(LinePointersZ *linePointersZ, LinePointersY *linePointersY)
 {
-    for (int i = lineSetZ->size - 1; i >= 0; i--)
+    for (int i = linePointersZ->size - 1; i >= 0; i--)
     {
-        for (int j = lineSetY->size - 1; j >= 0; j--)
+        for (int j = linePointersY->size - 1; j >= 0; j--)
         {
-            Point3D p3D = lineIntersectionZY(lineSetZ->array[i], lineSetY->array[j]);
+            Point3D p3D = lineIntersectionZY(linePointersZ->array[i], linePointersY->array[j]);
             if (p3D.x != -1 && p3D.y != -1 && p3D.z != -1)
             {
                 Intersection *interS = (Intersection *)malloc(sizeof(Intersection));
                 interS->p3D = p3D;
                 interS->lineX = NULL;
-                interS->lineY = &lineSetY->array[j];
-                interS->lineZ = &lineSetZ->array[i];
+                interS->lineY = &linePointersY->array[j];
+                interS->lineZ = &linePointersZ->array[i];
                 return interS;
             }
         }
@@ -426,7 +433,7 @@ void setPath(PathFromIntersection *pathToSrc, Point3D interP, PathFromIntersecti
 /////////////////////////////////////// Generate lines for each level /////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-LineX createLineX(int x, int y, int z, ObstacleArray *obsArray)
+LineX createLineX(int x, int y, int z, ObstacleArray *obsArray, LinePointersX *linePointersX)
 {
     LineX lineX;
     lineX.x = x;
@@ -435,10 +442,14 @@ LineX createLineX(int x, int y, int z, ObstacleArray *obsArray)
     lineX.xStart = 0;
     lineX.xEnd = HORIZON_LEN - 1;
     trimLineX(&lineX, obsArray);
+    for (int i = lineX.xStart; i <= lineX.xEnd; i++)
+    {
+        linePointersX->included[i][lineX.y][lineX.z] = true;
+    }
     return lineX;
 }
 
-LineY createLineY(int x, int y, int z, ObstacleArray *obsArray)
+LineY createLineY(int x, int y, int z, ObstacleArray *obsArray, LinePointersY *linePointersY)
 {
     LineY lineY;
     lineY.x = x;
@@ -447,10 +458,14 @@ LineY createLineY(int x, int y, int z, ObstacleArray *obsArray)
     lineY.yStart = 0;
     lineY.yEnd = HORIZON_LEN - 1;
     trimLineY(&lineY, obsArray);
+    for (int i = lineY.yStart; i <= lineY.yEnd; i++)
+    {
+        linePointersY->included[lineY.x][i][lineY.z] = true;
+    }
     return lineY;
 }
 
-LineZ createLineZ(int x, int y, int z, ObstacleArray *obsArray)
+LineZ createLineZ(int x, int y, int z, ObstacleArray *obsArray, LinePointersZ *linePointersZ)
 {
     LineZ lineZ;
     lineZ.x = x;
@@ -459,99 +474,94 @@ LineZ createLineZ(int x, int y, int z, ObstacleArray *obsArray)
     lineZ.zStart = 0;
     lineZ.zEnd = HORIZON_LEN - 1;
     trimLineZ(&lineZ, obsArray);
+    for (int i = lineZ.zStart; i <= lineZ.zEnd; i++)
+    {
+        linePointersZ->included[lineZ.x][lineZ.y][i] = true;
+    }
     return lineZ;
 }
 
-void spawnLines(LineSetX *lineSetX, LineSetY *lineSetY, LineSetZ *lineSetZ, ObstacleArray *obsArray)
+void spawnLines(LinePointersX *linePointersX, LinePointersY *linePointersY, LinePointersZ *linePointersZ, ObstacleArray *obsArray)
 {
-    int lineSetXSize = lineSetX->size;
-    int lineSetYSize = lineSetY->size;
-    int lineSetZSize = lineSetZ->size;
+    int linePointersXSize = linePointersX->size;
+    int linePointersYSize = linePointersY->size;
+    int linePointersZSize = linePointersZ->size;
 
-    for (int i = lineSetX->prevSize; i < lineSetXSize; i++)
+    for (int i = linePointersX->prevSize; i < linePointersXSize; i++)
     {
-        LineX lineX = lineSetX->array[i];
+        LineX lineX = linePointersX->array[i];
         for (int j = lineX.xStart; j <= lineX.xEnd; j++)
         {
-            if (!(j == lineX.x && lineX.parentLineY == NULL && lineX.parentLineZ == NULL))
+            if (!linePointersY->included[j][lineX.y][lineX.z])
             {
-                if (!(j == lineX.x && lineX.parentLineY != NULL) && !(j == lineX.x && lineX.parentLineZ != NULL && lineX.parentLineZ->parentLineY != NULL))
-                {
-                    LineY lineY = createLineY(j, lineX.y, lineX.z, obsArray);
-                    lineY.parentLineX = &(lineSetX->array[i]);
-                    lineY.parentLineZ = NULL;
-                    lineSetY->array[lineSetY->size] = lineY;
-                    lineSetY->size++;
-                }
-                if (!(j == lineX.x && lineX.parentLineZ != NULL) && !(j == lineX.x && lineX.parentLineY != NULL && lineX.parentLineY->parentLineZ != NULL))
-                {
-                    LineZ lineZ = createLineZ(j, lineX.y, lineX.z, obsArray);
-                    lineZ.parentLineX = &(lineSetX->array[i]);
-                    lineZ.parentLineY = NULL;
-                    lineSetZ->array[lineSetZ->size] = lineZ;
-                    lineSetZ->size++;
-                }
+                LineY lineY = createLineY(j, lineX.y, lineX.z, obsArray, linePointersY);
+                lineY.parentLineX = &(linePointersX->array[i]);
+                lineY.parentLineZ = NULL;
+                linePointersY->array[linePointersY->size] = lineY;
+                linePointersY->size++;
+            }
+            if (!linePointersZ->included[j][lineX.y][lineX.z])
+            {
+                LineZ lineZ = createLineZ(j, lineX.y, lineX.z, obsArray, linePointersZ);
+                lineZ.parentLineX = &(linePointersX->array[i]);
+                lineZ.parentLineY = NULL;
+                linePointersZ->array[linePointersZ->size] = lineZ;
+                linePointersZ->size++;
             }
         }
     }
 
-    for (int i = lineSetY->prevSize; i < lineSetYSize; i++)
+    for (int i = linePointersY->prevSize; i < linePointersYSize; i++)
     {
-        LineY lineY = lineSetY->array[i];
+        LineY lineY = linePointersY->array[i];
         for (int j = lineY.yStart; j <= lineY.yEnd; j++)
         {
-            if (!(j == lineY.y && lineY.parentLineX == NULL && lineY.parentLineZ == NULL))
+            if (!linePointersX->included[(int)lineY.x][j][(int)lineY.z])
             {
-                if (!(j == lineY.y && lineY.parentLineX != NULL) && !(j == lineY.y && lineY.parentLineZ != NULL && lineY.parentLineZ->parentLineX != NULL))
-                {
-                    LineX lineX = createLineX(lineY.x, j, lineY.z, obsArray);
-                    lineX.parentLineY = &(lineSetY->array[i]);
-                    lineX.parentLineZ = NULL;
-                    lineSetX->array[lineSetX->size] = lineX;
-                    lineSetX->size++;
-                }
-                if (!(j == lineY.y && lineY.parentLineZ != NULL) && !(j == lineY.y && lineY.parentLineX != NULL && lineY.parentLineX->parentLineZ != NULL))
-                {
-                    LineZ lineZ = createLineZ(lineY.x, j, lineY.z, obsArray);
-                    lineZ.parentLineY = &(lineSetY->array[i]);
-                    lineZ.parentLineX = NULL;
-                    lineSetZ->array[lineSetZ->size] = lineZ;
-                    lineSetZ->size++;
-                }
+                LineX lineX = createLineX(lineY.x, j, lineY.z, obsArray, linePointersX);
+                lineX.parentLineY = &(linePointersY->array[i]);
+                lineX.parentLineZ = NULL;
+                linePointersX->array[linePointersX->size] = lineX;
+                linePointersX->size++;
+            }
+            if (!linePointersZ->included[(int)lineY.x][j][(int)lineY.z])
+            {
+                LineZ lineZ = createLineZ(lineY.x, j, lineY.z, obsArray, linePointersZ);
+                lineZ.parentLineY = &(linePointersY->array[i]);
+                lineZ.parentLineX = NULL;
+                linePointersZ->array[linePointersZ->size] = lineZ;
+                linePointersZ->size++;
             }
         }
     }
 
-    for (int i = lineSetZ->prevSize; i < lineSetZSize; i++)
+    for (int i = linePointersZ->prevSize; i < linePointersZSize; i++)
     {
-        LineZ lineZ = lineSetZ->array[i];
+        LineZ lineZ = linePointersZ->array[i];
         for (int j = lineZ.zStart; j <= lineZ.zEnd; j++)
         {
-            if (!(j == lineZ.z && lineZ.parentLineY == NULL && lineZ.parentLineX == NULL))
+            if (!linePointersY->included[(int)lineZ.x][(int)lineZ.y][j])
             {
-                if (!(j == lineZ.z && lineZ.parentLineY != NULL) && !(j == lineZ.z && lineZ.parentLineX != NULL && lineZ.parentLineX->parentLineY != NULL))
-                {
-                    LineY lineY = createLineY(lineZ.x, lineZ.y, j, obsArray);
-                    lineY.parentLineZ = &(lineSetZ->array[i]);
-                    lineY.parentLineX = NULL;
-                    lineSetY->array[lineSetY->size] = lineY;
-                    lineSetY->size++;
-                }
-                if (!(j == lineZ.z && lineZ.parentLineX != NULL) && !(j == lineZ.z && lineZ.parentLineY != NULL && lineZ.parentLineY->parentLineX != NULL))
-                {
-                    LineX lineX = createLineX(lineZ.x, lineZ.y, j, obsArray);
-                    lineX.parentLineZ = &(lineSetZ->array[i]);
-                    lineX.parentLineY = NULL;
-                    lineSetX->array[lineSetX->size] = lineX;
-                    lineSetX->size++;
-                }
+                LineY lineY = createLineY(lineZ.x, lineZ.y, j, obsArray, linePointersY);
+                lineY.parentLineZ = &(linePointersZ->array[i]);
+                lineY.parentLineX = NULL;
+                linePointersY->array[linePointersY->size] = lineY;
+                linePointersY->size++;
+            }
+            if (!linePointersX->included[(int)lineZ.x][(int)lineZ.y][j])
+            {
+                LineX lineX = createLineX(lineZ.x, lineZ.y, j, obsArray, linePointersX);
+                lineX.parentLineZ = &(linePointersZ->array[i]);
+                lineX.parentLineY = NULL;
+                linePointersX->array[linePointersX->size] = lineX;
+                linePointersX->size++;
             }
         }
     }
 
-    lineSetX->prevSize = lineSetXSize;
-    lineSetY->prevSize = lineSetYSize;
-    lineSetZ->prevSize = lineSetZSize;
+    linePointersX->prevSize = linePointersXSize;
+    linePointersY->prevSize = linePointersYSize;
+    linePointersZ->prevSize = linePointersZSize;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -578,14 +588,14 @@ void *mikamiTabuchi(Point3D start, Point3D dst, Path *path, OccupancyGrid *occGr
 
     printf("Generating initial lineSets\n");
     // Initializes the data structure and adds L0 lines
-    LineSetX *srcLineSetX = createLineSetX(start, obsArray);
-    LineSetX *dstLineSetX = createLineSetX(dst, obsArray);
+    LinePointersX *srcLinePointersX = createLinePointersX(start, obsArray);
+    LinePointersX *dstLinePointersX = createLinePointersX(dst, obsArray);
 
-    LineSetY *srcLineSetY = createLineSetY(start, obsArray);
-    LineSetY *dstLineSetY = createLineSetY(dst, obsArray);
+    LinePointersY *srcLinePointersY = createLinePointersY(start, obsArray);
+    LinePointersY *dstLinePointersY = createLinePointersY(dst, obsArray);
 
-    LineSetZ *srcLineSetZ = createLineSetZ(start, obsArray);
-    LineSetZ *dstLineSetZ = createLineSetZ(dst, obsArray);
+    LinePointersZ *srcLinePointersZ = createLinePointersZ(start, obsArray);
+    LinePointersZ *dstLinePointersZ = createLinePointersZ(dst, obsArray);
 
     // Local data structures to store the path
     Intersection *interS = NULL;
@@ -600,71 +610,70 @@ void *mikamiTabuchi(Point3D start, Point3D dst, Path *path, OccupancyGrid *occGr
         int level = i;
         printf("Starting level %d\n", level);
 
-        // Find intersections with the current set of X lines from src
-        interS = lineSetIntersectionXY(srcLineSetX, dstLineSetY);
+        // Find intersections with the current set of X & Y lines from src
+        interS = lineSetIntersectionXY(srcLinePointersX, dstLinePointersY);
         if (interS != NULL)
         {
             printf("Found intersection in XY\n");
             backTraceX(interS->lineX, pathToSrc);
             backTraceY(interS->lineY, pathToDst);
             setPath(pathToSrc, interS->p3D, pathToDst, path);
-            freeMemory(occGrid, obsArray, srcLineSetX, dstLineSetX, srcLineSetY, dstLineSetY, srcLineSetZ, dstLineSetZ, pathToSrc, pathToDst, interS);
+            freeMemory(occGrid, obsArray, srcLinePointersX, dstLinePointersX, srcLinePointersY, dstLinePointersY, srcLinePointersZ, dstLinePointersZ, pathToSrc, pathToDst, interS);
             return NULL;
         }
 
-        interS = lineSetIntersectionXZ(srcLineSetX, dstLineSetZ);
-        if (interS != NULL)
-        {
-            printf("Found intersection in XZ\n");
-            backTraceX(interS->lineX, pathToSrc);
-            backTraceZ(interS->lineZ, pathToDst);
-            setPath(pathToSrc, interS->p3D, pathToDst, path);
-            freeMemory(occGrid, obsArray, srcLineSetX, dstLineSetX, srcLineSetY, dstLineSetY, srcLineSetZ, dstLineSetZ, pathToSrc, pathToDst, interS);
-            return NULL;
-        }
-
-        // Find intersections with the current set of Y lines from src
-        interS = lineSetIntersectionXY(dstLineSetX, srcLineSetY);
+        interS = lineSetIntersectionXY(dstLinePointersX, srcLinePointersY);
         if (interS != NULL)
         {
             printf("Found intersection in XY\n");
             backTraceX(interS->lineX, pathToDst);
             backTraceY(interS->lineY, pathToSrc);
             setPath(pathToSrc, interS->p3D, pathToDst, path);
-            freeMemory(occGrid, obsArray, srcLineSetX, dstLineSetX, srcLineSetY, dstLineSetY, srcLineSetZ, dstLineSetZ, pathToSrc, pathToDst, interS);
+            freeMemory(occGrid, obsArray, srcLinePointersX, dstLinePointersX, srcLinePointersY, dstLinePointersY, srcLinePointersZ, dstLinePointersZ, pathToSrc, pathToDst, interS);
             return NULL;
         }
 
-        interS = lineSetIntersectionZY(dstLineSetZ, srcLineSetY);
+        interS = lineSetIntersectionXZ(srcLinePointersX, dstLinePointersZ);
+        if (interS != NULL)
+        {
+            printf("Found intersection in XZ\n");
+            backTraceX(interS->lineX, pathToSrc);
+            backTraceZ(interS->lineZ, pathToDst);
+            setPath(pathToSrc, interS->p3D, pathToDst, path);
+            freeMemory(occGrid, obsArray, srcLinePointersX, dstLinePointersX, srcLinePointersY, dstLinePointersY, srcLinePointersZ, dstLinePointersZ, pathToSrc, pathToDst, interS);
+            return NULL;
+        }
+
+        interS = lineSetIntersectionZY(dstLinePointersZ, srcLinePointersY);
         if (interS != NULL)
         {
             printf("Found intersection in ZY\n");
             backTraceY(interS->lineY, pathToSrc);
             backTraceZ(interS->lineZ, pathToDst);
             setPath(pathToSrc, interS->p3D, pathToDst, path);
-            freeMemory(occGrid, obsArray, srcLineSetX, dstLineSetX, srcLineSetY, dstLineSetY, srcLineSetZ, dstLineSetZ, pathToSrc, pathToDst, interS);
+            freeMemory(occGrid, obsArray, srcLinePointersX, dstLinePointersX, srcLinePointersY, dstLinePointersY, srcLinePointersZ, dstLinePointersZ, pathToSrc, pathToDst, interS);
             return NULL;
         }
 
         // Find intersections with the current set of Z lines from src
-        interS = lineSetIntersectionXZ(dstLineSetX, srcLineSetZ);
+        interS = lineSetIntersectionXZ(dstLinePointersX, srcLinePointersZ);
         if (interS != NULL)
         {
             printf("Found intersection in XZ\n");
             backTraceX(interS->lineX, pathToDst);
             backTraceZ(interS->lineZ, pathToSrc);
             setPath(pathToSrc, interS->p3D, pathToDst, path);
-            freeMemory(occGrid, obsArray, srcLineSetX, dstLineSetX, srcLineSetY, dstLineSetY, srcLineSetZ, dstLineSetZ, pathToSrc, pathToDst, interS);
+            freeMemory(occGrid, obsArray, srcLinePointersX, dstLinePointersX, srcLinePointersY, dstLinePointersY, srcLinePointersZ, dstLinePointersZ, pathToSrc, pathToDst, interS);
             return NULL;
         }
-        interS = lineSetIntersectionZY(srcLineSetZ, dstLineSetY);
+        interS = lineSetIntersectionZY(srcLinePointersZ, dstLinePointersY);
         if (interS != NULL)
         {
             printf("Found intersection in ZY\n");
             backTraceY(interS->lineY, pathToDst);
             backTraceZ(interS->lineZ, pathToSrc);
             setPath(pathToSrc, interS->p3D, pathToDst, path);
-            freeMemory(occGrid, obsArray, srcLineSetX, dstLineSetX, srcLineSetY, dstLineSetY, srcLineSetZ, dstLineSetZ, pathToSrc, pathToDst, interS);
+            freeMemory(occGrid, obsArray, srcLinePointersX, dstLinePointersX, srcLinePointersY, dstLinePointersY, srcLinePointersZ, dstLinePointersZ, pathToSrc, pathToDst, interS);
             return NULL;
         }
 
@@ -672,8 +681,8 @@ void *mikamiTabuchi(Point3D start, Point3D dst, Path *path, OccupancyGrid *occGr
         printf("No intersection found in level %d!\n", i);
         if (interS == NULL)
         {
-            spawnLines(srcLineSetX, srcLineSetY, srcLineSetZ, obsArray);
-            spawnLines(dstLineSetX, dstLineSetY, dstLineSetZ, obsArray);
+            spawnLines(srcLinePointersX, srcLinePointersY, srcLinePointersZ, obsArray);
+            spawnLines(dstLinePointersX, dstLinePointersY, dstLinePointersZ, obsArray);
         }
     }
 
@@ -685,20 +694,20 @@ void *mikamiTabuchi(Point3D start, Point3D dst, Path *path, OccupancyGrid *occGr
     {
         free(interS);
     }
-    freeMemory(occGrid, obsArray, srcLineSetX, dstLineSetX, srcLineSetY, dstLineSetY, srcLineSetZ, dstLineSetZ, pathToSrc, pathToDst, interS);
+    freeMemory(occGrid, obsArray, srcLinePointersX, dstLinePointersX, srcLinePointersY, dstLinePointersY, srcLinePointersZ, dstLinePointersZ, pathToSrc, pathToDst, interS);
     return NULL;
 }
 
-void freeMemory(OccupancyGrid *occGrid, ObstacleArray *obsArray, LineSetX *srcLineSetX, LineSetX *dstLineSetX, LineSetY *srcLineSetY, LineSetY *dstLineSetY, LineSetZ *srcLineSetZ, LineSetZ *dstLineSetZ, PathFromIntersection *pathToSrc, PathFromIntersection *pathToDst, Intersection *interS)
+void freeMemory(OccupancyGrid *occGrid, ObstacleArray *obsArray, LinePointersX *srcLinePointersX, LinePointersX *dstLinePointersX, LinePointersY *srcLinePointersY, LinePointersY *dstLinePointersY, LinePointersZ *srcLinePointersZ, LinePointersZ *dstLinePointersZ, PathFromIntersection *pathToSrc, PathFromIntersection *pathToDst, Intersection *interS)
 {
     // free(occGrid); // Uncomment while running isolated C code.
     free(obsArray);
-    free(srcLineSetX);
-    free(dstLineSetX);
-    free(srcLineSetY);
-    free(dstLineSetY);
-    free(srcLineSetZ);
-    free(dstLineSetZ);
+    free(srcLinePointersX);
+    free(dstLinePointersX);
+    free(srcLinePointersY);
+    free(dstLinePointersY);
+    free(srcLinePointersZ);
+    free(dstLinePointersZ);
     free(pathToSrc);
     free(pathToDst);
 }

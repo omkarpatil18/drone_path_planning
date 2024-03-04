@@ -4,7 +4,7 @@ import numpy as np
 
 sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
 
-from constants import HORIZON_LEN, PLAN_FREQ
+from utils import HORIZON_LEN, PLAN_FREQ
 from drone_controller import DroneController
 from utils import get_points_on_line, C_IMPL_DIR, Path, OccupancyGrid
 
@@ -12,8 +12,8 @@ from utils import get_points_on_line, C_IMPL_DIR, Path, OccupancyGrid
 class CAStar(DroneController):
 
     def __init__(self):
+        self.so_file = f"{C_IMPL_DIR}/astar/astar_{HORIZON_LEN}.so"
         super().__init__()
-        self.so_file = f"{C_IMPL_DIR}/astar/astar.so"
 
 
 # Plan path to random point

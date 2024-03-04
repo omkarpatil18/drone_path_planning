@@ -5,7 +5,7 @@ import numpy as np
 
 sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
 
-from constants import HORIZON_LEN, PLAN_FREQ
+from utils import HORIZON_LEN, PLAN_FREQ
 from drone_controller import DroneController
 from utils import get_points_on_line, C_IMPL_DIR, Path, OccupancyGrid
 

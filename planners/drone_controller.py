@@ -7,7 +7,7 @@ from copy import copy
 
 sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
 import binvox_rw
-from constants import MAP_LOCATION, HORIZON_LEN, PLAN_FREQ, DIST_THRESH, SCALE
+from utils import MAP_LOCATION, HORIZON_LEN, PLAN_FREQ, DIST_THRESH, SCALE
 from utils import TransformCoordinates, Path, OccupancyGrid
 
 
@@ -95,6 +95,7 @@ class DroneController:
                 ),
                 airgen.Quaternionr(airgen.Vector3r(0, 0, 0)),
             )
+            goal_pose.position.z_val = start_pose.position.z_val
 
             # Make sure that the goal does not coincide with an obstacle
             self.drone_client.simCreateVoxelGrid(
@@ -132,8 +133,8 @@ class DroneController:
             # Get heading towards the final goal
             r_xy, theta = cmath.polar(complex(x_vec, y_vec))
             rS, phi = cmath.polar(complex(r_xy, z_vec))
-            if rS > PLAN_FREQ:
-                rS = PLAN_FREQ
+            if rS > PLAN_FREQ * SCALE:
+                rS = PLAN_FREQ * SCALE
 
             # local planning
             get_coords = lambda cnum: (int(cnum.real), int(cnum.imag))
@@ -250,20 +251,27 @@ class DroneController:
                 for k in range(HORIZON_LEN):
                     occ_grid_obj.array[i][j][k] = 1 if occ_grid.data[i][j][k] else 0
 
-        # # Zero drone's voxels
-        # for i in range(HORIZON_LEN // 2, (HORIZON_LEN // 2) + 1):
-        #     for j in range(HORIZON_LEN // 2, (HORIZON_LEN // 2) + 1):
-        #         for k in range(HORIZON_LEN // 2, (HORIZON_LEN // 2) + 1):
-        #             occ_grid_obj.array[i][j][k] = 0
-        occ_grid_obj.array[HORIZON_LEN // 2][HORIZON_LEN // 2][HORIZON_LEN // 2] = 0
+        # Zero drone's voxels
+        if SCALE == 1:
+            for i in range((HORIZON_LEN // 2) - 1, (HORIZON_LEN // 2) + 2):
+                for j in range((HORIZON_LEN // 2) - 1, (HORIZON_LEN // 2) + 2):
+                    for k in range((HORIZON_LEN // 2) - 1, (HORIZON_LEN // 2) + 2):
+                        occ_grid_obj.array[i][j][k] = 0
+        else:
+            occ_grid_obj.array[HORIZON_LEN // 2][HORIZON_LEN // 2][HORIZON_LEN // 2] = 0
 
         # Call the c code
         self.planner(
             self.array_type(start_pose.x_val, start_pose.y_val, start_pose.z_val),
-            self.array_type(goal_pose.x_val, goal_pose.y_val, goal_pose.z_val),
+            self.array_type(
+                int(goal_pose.x_val), int(goal_pose.y_val), int(goal_pose.z_val)
+            ),
             ctypes.byref(path),
             ctypes.byref(occ_grid_obj),
         )
+        return self.process_path(path)
+
+    def process_path(self, path):
         path_len = path.path_len
         path = np.ndarray((path_len, 3), "f", path.array, order="C")
         vector_path = []
