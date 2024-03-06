@@ -13,7 +13,7 @@ from utils import get_points_on_line, C_IMPL_DIR, Path, OccupancyGrid
 class CMikami(DroneController):
 
     def __init__(self):
-        self.so_file = f"{C_IMPL_DIR}/mikami/mikami_air_{HORIZON_LEN}.so"
+        self.so_file = f"{C_IMPL_DIR}/mikami/mikami_air{HORIZON_LEN}.so"
         super().__init__()
 
     def process_path(self, path):

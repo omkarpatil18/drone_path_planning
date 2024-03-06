@@ -94,14 +94,14 @@ void trimLineX(LineX *lineX, ObstacleArray *obsArray)
             {
                 if (obs.x < lineX->xEnd)
                 {
-                    lineX->xEnd = obs.x;
+                    lineX->xEnd = obs.x - 1;
                 }
             }
             else
             {
                 if (obs.x > lineX->xStart)
                 {
-                    lineX->xStart = obs.x;
+                    lineX->xStart = obs.x + 1;
                 }
             }
         }
@@ -120,14 +120,14 @@ void trimLineY(LineY *lineY, ObstacleArray *obsArray)
             {
                 if (obs.y < lineY->yEnd)
                 {
-                    lineY->yEnd = obs.y;
+                    lineY->yEnd = obs.y - 1;
                 }
             }
             else
             {
                 if (obs.y > lineY->yStart)
                 {
-                    lineY->yStart = obs.y;
+                    lineY->yStart = obs.y + 1;
                 }
             }
         }
@@ -146,14 +146,14 @@ void trimLineZ(LineZ *lineZ, ObstacleArray *obsArray)
             {
                 if (obs.z < lineZ->zEnd)
                 {
-                    lineZ->zEnd = obs.z;
+                    lineZ->zEnd = obs.z - 1;
                 }
             }
             else
             {
                 if (obs.z > lineZ->zStart)
                 {
-                    lineZ->zStart = obs.z;
+                    lineZ->zStart = obs.z + 1;
                 }
             }
         }
@@ -270,9 +270,9 @@ Point3D lineIntersectionZY(LineZ lineZ, LineY lineY)
 // Get intersection of lineSet X and lineSet Y
 Intersection *lineSetIntersectionXY(LinePointersX *linePointersX, LinePointersY *linePointersY)
 {
-    for (int i = linePointersX->size - 1; i >= 0; i--)
+    for (int i = 0; i < linePointersX->size; i++)
     {
-        for (int j = linePointersY->size - 1; j >= 0; j--)
+        for (int j = 0; j < linePointersY->size; j++)
         {
             Point3D p3D = lineIntersectionXY(linePointersX->array[i], linePointersY->array[j]);
             if (p3D.x != -1 && p3D.y != -1 && p3D.z != -1)
@@ -292,9 +292,9 @@ Intersection *lineSetIntersectionXY(LinePointersX *linePointersX, LinePointersY 
 // Get intersection of lineSet X and lineSet Z
 Intersection *lineSetIntersectionXZ(LinePointersX *linePointersX, LinePointersZ *linePointersZ)
 {
-    for (int i = linePointersX->size - 1; i >= 0; i--)
+    for (int i = 0; i < linePointersX->size; i++)
     {
-        for (int j = linePointersZ->size - 1; j >= 0; j--)
+        for (int j = 0; j < linePointersZ->size; j++)
         {
             Point3D p3D = lineIntersectionXZ(linePointersX->array[i], linePointersZ->array[j]);
             if (p3D.x != -1 && p3D.y != -1 && p3D.z != -1)
@@ -314,9 +314,9 @@ Intersection *lineSetIntersectionXZ(LinePointersX *linePointersX, LinePointersZ 
 // Get intersection of lineSet Z and lineSet Y
 Intersection *lineSetIntersectionZY(LinePointersZ *linePointersZ, LinePointersY *linePointersY)
 {
-    for (int i = linePointersZ->size - 1; i >= 0; i--)
+    for (int i = 0; i < linePointersZ->size; i++)
     {
-        for (int j = linePointersY->size - 1; j >= 0; j--)
+        for (int j = 0; j < linePointersY->size; j++)
         {
             Point3D p3D = lineIntersectionZY(linePointersZ->array[i], linePointersY->array[j]);
             if (p3D.x != -1 && p3D.y != -1 && p3D.z != -1)
@@ -490,7 +490,27 @@ void spawnLines(LinePointersX *linePointersX, LinePointersY *linePointersY, Line
     for (int i = linePointersX->prevSize; i < linePointersXSize; i++)
     {
         LineX lineX = linePointersX->array[i];
-        for (int j = lineX.xStart; j <= lineX.xEnd; j++)
+        // Split to approx. optimize the path length
+        for (int j = lineX.x; j <= lineX.xEnd; j++)
+        {
+            if (!linePointersY->included[j][lineX.y][lineX.z])
+            {
+                LineY lineY = createLineY(j, lineX.y, lineX.z, obsArray, linePointersY);
+                lineY.parentLineX = &(linePointersX->array[i]);
+                lineY.parentLineZ = NULL;
+                linePointersY->array[linePointersY->size] = lineY;
+                linePointersY->size++;
+            }
+            if (!linePointersZ->included[j][lineX.y][lineX.z])
+            {
+                LineZ lineZ = createLineZ(j, lineX.y, lineX.z, obsArray, linePointersZ);
+                lineZ.parentLineX = &(linePointersX->array[i]);
+                lineZ.parentLineY = NULL;
+                linePointersZ->array[linePointersZ->size] = lineZ;
+                linePointersZ->size++;
+            }
+        }
+        for (int j = lineX.x; j >= lineX.xStart; j--)
         {
             if (!linePointersY->included[j][lineX.y][lineX.z])
             {
@@ -514,7 +534,27 @@ void spawnLines(LinePointersX *linePointersX, LinePointersY *linePointersY, Line
     for (int i = linePointersY->prevSize; i < linePointersYSize; i++)
     {
         LineY lineY = linePointersY->array[i];
-        for (int j = lineY.yStart; j <= lineY.yEnd; j++)
+        // Split to approx. optimize the path length
+        for (int j = lineY.y; j <= lineY.yEnd; j++)
+        {
+            if (!linePointersX->included[(int)lineY.x][j][(int)lineY.z])
+            {
+                LineX lineX = createLineX(lineY.x, j, lineY.z, obsArray, linePointersX);
+                lineX.parentLineY = &(linePointersY->array[i]);
+                lineX.parentLineZ = NULL;
+                linePointersX->array[linePointersX->size] = lineX;
+                linePointersX->size++;
+            }
+            if (!linePointersZ->included[(int)lineY.x][j][(int)lineY.z])
+            {
+                LineZ lineZ = createLineZ(lineY.x, j, lineY.z, obsArray, linePointersZ);
+                lineZ.parentLineY = &(linePointersY->array[i]);
+                lineZ.parentLineX = NULL;
+                linePointersZ->array[linePointersZ->size] = lineZ;
+                linePointersZ->size++;
+            }
+        }
+        for (int j = lineY.y; j >= lineY.yStart; j--)
         {
             if (!linePointersX->included[(int)lineY.x][j][(int)lineY.z])
             {
@@ -538,7 +578,27 @@ void spawnLines(LinePointersX *linePointersX, LinePointersY *linePointersY, Line
     for (int i = linePointersZ->prevSize; i < linePointersZSize; i++)
     {
         LineZ lineZ = linePointersZ->array[i];
-        for (int j = lineZ.zStart; j <= lineZ.zEnd; j++)
+        // Split to approx. optimize the path length
+        for (int j = lineZ.z; j <= lineZ.zEnd; j++)
+        {
+            if (!linePointersY->included[(int)lineZ.x][(int)lineZ.y][j])
+            {
+                LineY lineY = createLineY(lineZ.x, lineZ.y, j, obsArray, linePointersY);
+                lineY.parentLineZ = &(linePointersZ->array[i]);
+                lineY.parentLineX = NULL;
+                linePointersY->array[linePointersY->size] = lineY;
+                linePointersY->size++;
+            }
+            if (!linePointersX->included[(int)lineZ.x][(int)lineZ.y][j])
+            {
+                LineX lineX = createLineX(lineZ.x, lineZ.y, j, obsArray, linePointersX);
+                lineX.parentLineZ = &(linePointersZ->array[i]);
+                lineX.parentLineY = NULL;
+                linePointersX->array[linePointersX->size] = lineX;
+                linePointersX->size++;
+            }
+        }
+        for (int j = lineZ.z; j >= lineZ.zStart; j--)
         {
             if (!linePointersY->included[(int)lineZ.x][(int)lineZ.y][j])
             {
@@ -614,6 +674,7 @@ void *mikamiTabuchi(Point3D start, Point3D dst, Path *path, OccupancyGrid *occGr
         int level = i;
         printf("Starting level %d\n", level);
 
+        // Find intersections with the current set of X & Y lines from src
         interS = lineSetIntersectionXY(srcLinePointersX, dstLinePointersY);
         if (interS != NULL)
         {

@@ -80,22 +80,22 @@ class DroneController:
         start_pose = self.drone_client.simGetVehiclePose()
         valid_goal = False
         while not valid_goal:
-            # # Sample a random valid pose in the environment
-            # goal_pose = self.sample_random_pose()
-            # while goal_pose.position.z_val > 0:
-            #     goal_pose = self.sample_random_pose()
+            # Sample a random valid pose in the environment
+            goal_pose = self.sample_random_pose()
+            while goal_pose.position.z_val > 0:
+                goal_pose = self.sample_random_pose()
             # goal_pose.position.z_val = start_pose.position.z_val
 
-            # Goal pose for testing
-            goal_pose = airgen.Pose(
-                airgen.Vector3r(
-                    100.08,
-                    -95.00,
-                    -6.04,
-                ),
-                airgen.Quaternionr(airgen.Vector3r(0, 0, 0)),
-            )
-            goal_pose.position.z_val = start_pose.position.z_val
+            # # Goal pose for testing
+            # goal_pose = airgen.Pose(
+            #     airgen.Vector3r(
+            #         118.9158593816289,
+            #         102.44622511764848,
+            #         -1.8578945398330688,
+            #     ),
+            #     airgen.Quaternionr(airgen.Vector3r(0, 0, 0)),
+            # )
+            # goal_pose.position.z_val = start_pose.position.z_val
 
             # Make sure that the goal does not coincide with an obstacle
             self.drone_client.simCreateVoxelGrid(
@@ -124,6 +124,8 @@ class DroneController:
         """
         start_pose, goal_pose = self.spawn_poses()
         print(f"Moving to goal position: {goal_pose.position}")
+        move_planar = False  # move on the same XY plane
+
         while start_pose.position.distance_to(goal_pose.position) > DIST_THRESH:
             pose_vec = goal_pose.position - start_pose.position
             x_vec = pose_vec.x_val
@@ -140,6 +142,9 @@ class DroneController:
             get_coords = lambda cnum: (int(cnum.real), int(cnum.imag))
             goal_xy, goal_z = get_coords(cmath.rect(rS, phi))
             goal_x, goal_y = get_coords(cmath.rect(goal_xy, theta))
+            if move_planar:
+                goal_z = 0
+                move_planar = False
 
             interrim_goal_vec = airgen.Vector3r(
                 start_pose.position.x_val + goal_x,
@@ -189,10 +194,37 @@ class DroneController:
 
             # Handle the cases where a path is not found. Could be because the interrim goal
             # lies on an obstacle or a path actually does not exist.
-            while len(trajectory_in_occ_grid) == 0:
-                phi -= np.pi / 4
-                goal_xy, goal_z = get_coords(cmath.rect(rS, phi))
-                goal_x, goal_y = get_coords(cmath.rect(goal_xy, theta))
+            switch = 1
+            angle_mult = 0.5
+            theta0 = theta
+            stuck = 0  # to prevent infinite loop
+            while len(trajectory_in_occ_grid) <= 1:
+                # Change the direction on the XY plane if possible
+                if angle_mult == 8:
+                    stuck += 1
+                    if stuck > 4:
+                        print("Stuck! Changing the interrim goal position.")
+                        goal_x, goal_y = (
+                            stuck * np.random.choice([-1, 1]),
+                            stuck * np.random.choice([-1, 1]),
+                        )
+                    else:
+                        goal_x, goal_y = 0, 0
+                        move_planar = True
+
+                    _, goal_z = get_coords(
+                        cmath.rect(max(rS / 4, SCALE + 1), -np.pi / 2)
+                    )
+                else:
+                    if switch == 1:
+                        angle_mult = angle_mult * 2
+                    theta = theta0 + np.pi * switch * angle_mult / 16
+                    switch = switch * -1
+                    goal_xy, goal_z = get_coords(cmath.rect(rS, phi))
+                    goal_x, goal_y = get_coords(cmath.rect(goal_xy, theta))
+                    if move_planar:
+                        goal_z = 0
+                        move_planar = False
 
                 interrim_goal_vec = airgen.Vector3r(
                     start_pose.position.x_val + goal_x,
@@ -216,6 +248,7 @@ class DroneController:
                 trajectory_in_occ_grid = self.find_path(
                     copy(drone_in_occ_grid), copy(goal_in_occ_grid[0]), occ_grid
                 )
+
             # Transform coordinates back to world frame
             trajectory_in_world = trans_coords.occ_grid_to_world(
                 copy(trajectory_in_occ_grid)
@@ -235,6 +268,7 @@ class DroneController:
 
             # Get the pose at the end of plan traversal
             start_pose = self.drone_client.simGetVehiclePose()
+
         print(f"##### Destination reached {goal_pose.position}")
 
     def find_path(self, start_pose, goal_pose, occ_grid):
