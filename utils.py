@@ -2,13 +2,17 @@ import os
 import sys
 import ctypes
 import numpy as np
+import airgen
 
 C_IMPL_DIR = "/home/local/ASUAD/opatil3/src/drone_path_planning/planners/c_impl"
 MAP_LOCATION = "/home/local/ASUAD/opatil3/Simulators/map.binvox"
 PLAN_FREQ = 4  # in meters. Should be <= HORIZON_LEN//2
 HORIZON_LEN = 10  # in meters. Keep in the form of 2x+1, preferrably small.
-SCALE = 7  # Scale of voxel in the occupancy grid relative to the simulator world
-DIST_THRESH = 2 * SCALE  # Maximum distance from the goal to be considered successful
+SCALE = 2  # Scale of voxel in the occupancy grid relative to the simulator world
+DIST_THRESH = min(
+    2 * SCALE, 5
+)  # Maximum distance from the goal to be considered successful
+ITER_THRESH = 100  # Maximum number of iterations to find a path
 
 # cc -fPIC -g -shared -o mikami.so mikami.c
 
@@ -94,3 +98,11 @@ class Path(ctypes.Structure):
         ("path_len", ctypes.c_int),
         ("array", (ctypes.c_float * 3) * (HORIZON_LEN * HORIZON_LEN * HORIZON_LEN)),
     ]
+
+
+def get_vector3r_pose(px, py, pz):
+    """Returns a Vector3r pose object given the x, y, z coordinates"""
+    return airgen.Pose(
+        airgen.Vector3r(px, py, pz),
+        airgen.Quaternionr(airgen.Vector3r(0, 0, 0)),
+    )

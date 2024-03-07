@@ -7,14 +7,18 @@ sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
 
 from utils import HORIZON_LEN, PLAN_FREQ
 from drone_controller import DroneController
-from utils import get_points_on_line, C_IMPL_DIR, Path, OccupancyGrid
+from airgen_env import POSE_SET
+from utils import (
+    C_IMPL_DIR,
+    get_vector3r_pose,
+)
 
 
 class CMikami(DroneController):
 
-    def __init__(self):
-        self.so_file = f"{C_IMPL_DIR}/mikami/mikami_air{HORIZON_LEN}.so"
-        super().__init__()
+    def __init__(self, **kwargs):
+        self.so_file = f"{C_IMPL_DIR}/mikami/mikami_{HORIZON_LEN}.so"
+        super().__init__(**kwargs)
 
     def process_path(self, path):
         path_len = path.path_len
@@ -25,11 +29,39 @@ class CMikami(DroneController):
         return vector_path
 
 
+# ENV = "AbandonedCableFactory"
+# ENV = "Blocks"
+ENV = "OilRig"
+# ENV = "ElectricCentral"
+# ENV = "FarNeighborhood"
+# ENV = "NearNeighborhood"
+
+
+POSES = POSE_SET[ENV]
 # Plan path to random point
-controller = CMikami()
+controller = CMikami(env_name=ENV, planner_name="Mikami")
 try:
-    controller.plan_and_move()
+    for spos, gpos in POSES:
+        sp = get_vector3r_pose(*spos)
+        gp = get_vector3r_pose(*gpos)
+        controller.plan_and_move((sp, gp))
+    controller.write_results()
+
 except KeyboardInterrupt:
     print("Keyboard interrupt detected, exiting...")
     client = airgen.MultirotorClient()
     client.reset()
+
+# controller.drone_client.reset()
+# controller.drone_client.confirmConnection()
+# controller.drone_client.enableApiControl(True)
+# controller.drone_client.takeoffAsync().join()
+# cntr = 0
+# while cntr < 50:
+#     sp, gp = controller.spawn_poses()
+#     if (
+#         sp.position.distance_to(gp.position) < 50
+#         and sp.position.distance_to(gp.position) > 30
+#     ):
+#         print("[", sp.position, ", ", gp.position, "],")
+#         cntr += 1

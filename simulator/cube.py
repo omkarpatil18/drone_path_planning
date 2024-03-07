@@ -115,7 +115,7 @@ class Cube:
             dims=[self.horizon_len, self.horizon_len, self.horizon_len],
             translate=[0.0, 0.0, 0.0],
             scale=1,
-            axis_order="xyz",
+            axis_order="xzy",
         )
         with open(
             os.path.join(self.dir_path, f"env_{idx}_path.binvox"),
@@ -129,7 +129,7 @@ class Cube:
             dims=[self.horizon_len, self.horizon_len, self.horizon_len],
             translate=[0.0, 0.0, 0.0],
             scale=1,
-            axis_order="xyz",
+            axis_order="xzy",
         )
         with open(
             os.path.join(self.dir_path, f"env_{idx}.binvox"),
@@ -138,11 +138,11 @@ class Cube:
             write(voxels, fp)
 
 
-OBS_SIZE = 10
+OBS_SIZE = 70
 for idx in range(100):
     path_found = False
     while not path_found:
-        c = Cube(density=0.05, horizon_len=HORIZON_LEN, obs_size=OBS_SIZE)
+        c = Cube(density=0.7, horizon_len=HORIZON_LEN, obs_size=OBS_SIZE)
         path_found = c.check_for_valid_path()
         # path_found = True
         if path_found:

@@ -1,30 +1,27 @@
+import os
 import sys
 import airgen
 import numpy as np
 import ctypes
 import cmath
+import threading
 from copy import copy
+import time
 
 sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
 import binvox_rw
-from utils import MAP_LOCATION, HORIZON_LEN, PLAN_FREQ, DIST_THRESH, SCALE
-from utils import TransformCoordinates, Path, OccupancyGrid
+from utils import MAP_LOCATION, HORIZON_LEN, PLAN_FREQ, DIST_THRESH, SCALE, ITER_THRESH
+from utils import TransformCoordinates, Path, OccupancyGrid, get_vector3r_pose
 
 
 class DroneController:
-    def __init__(self):
+    def __init__(self, env_name="", planner_name=""):
+        # Used to store the results
+        self.env_name = env_name
+        self.planner_name = planner_name
+
         # Initialize a drone client
         self.drone_client = airgen.connect_airgen(robot_type="multirotor")
-
-        # Reset previous state if any
-        self.drone_client.reset()
-
-        # Confirm the connection, and enable offboard (API) control
-        self.drone_client.confirmConnection()
-        self.drone_client.enableApiControl(True)
-
-        # Take off
-        self.drone_client.takeoffAsync().join()
 
         # Get navigation map information from the simulation world
         self.nav_mesh_info = self.drone_client.getNavMeshInfo()
@@ -41,7 +38,14 @@ class DroneController:
             ctypes.POINTER(Path),
             ctypes.POINTER(OccupancyGrid),
         )
-        self.planner.restype = None
+        self.planner.restype = ctypes.c_double
+
+        # Results
+        self.path_found = []
+        self.path_time = []
+        self.occ_grid_density = []
+        self.path_len = []
+        self.latency = []
 
     def sample_random_pose(self):
         # calculate bounds of the nav mesh
@@ -82,19 +86,10 @@ class DroneController:
         while not valid_goal:
             # Sample a random valid pose in the environment
             goal_pose = self.sample_random_pose()
-            while goal_pose.position.z_val > 0:
-                goal_pose = self.sample_random_pose()
-            # goal_pose.position.z_val = start_pose.position.z_val
+            goal_pose.position.z_val = start_pose.position.z_val
 
             # # Goal pose for testing
-            # goal_pose = airgen.Pose(
-            #     airgen.Vector3r(
-            #         118.9158593816289,
-            #         102.44622511764848,
-            #         -1.8578945398330688,
-            #     ),
-            #     airgen.Quaternionr(airgen.Vector3r(0, 0, 0)),
-            # )
+            # goal_pose = get_vector3r_pose(0, 0, 0)
             # goal_pose.position.z_val = start_pose.position.z_val
 
             # Make sure that the goal does not coincide with an obstacle
@@ -112,7 +107,7 @@ class DroneController:
                 valid_goal = True
         return start_pose, goal_pose
 
-    def plan_and_move(self):
+    def plan_and_move(self, poses=None):
         """
         Plan the path for a drone flying with a ~constant velocity of 5m/s.
         The velocity is reduced as the target approaches and the
@@ -122,11 +117,43 @@ class DroneController:
         The default implementation is in the find_path function.
         TODO: File I/O of the voxel grid is an unnecessary overhead
         """
-        start_pose, goal_pose = self.spawn_poses()
+        if poses is None:
+            start_pose, goal_pose = self.spawn_poses()
+        else:
+            start_pose, goal_pose = poses
+        # Disregard the start pose for now
+        self.drone_client.reset()
+        # Confirm the connection, and enable offboard (API) control
+        self.drone_client.confirmConnection()
+        self.drone_client.enableApiControl(True)
+        self.drone_client.takeoffAsync().join()
         print(f"Moving to goal position: {goal_pose.position}")
-        move_planar = False  # move on the same XY plane
 
-        while start_pose.position.distance_to(goal_pose.position) > DIST_THRESH:
+        # Collect metrics for each goal
+        move_planar = False  # move on the same XY plane
+        plan_latency = []
+        path_len = 0
+        occ_grid_density = []
+        path_found = True
+
+        start_t = time.perf_counter()
+        while start_pose.position.distance_to(goal_pose.position) > DIST_THRESH and (
+            np.linalg.norm(
+                [
+                    start_pose.position.x_val - goal_pose.position.x_val,
+                    start_pose.position.y_val - goal_pose.position.y_val,
+                ]
+            )
+            > DIST_THRESH / 2
+            or np.abs(start_pose.position.z_val - goal_pose.position.z_val)
+            > HORIZON_LEN
+        ):
+            if time.perf_counter() - start_t > 250:
+                print("Could not find a path to the goal. Exiting...")
+                path_found = False
+                end_t = time.perf_counter()
+                break
+
             pose_vec = goal_pose.position - start_pose.position
             x_vec = pose_vec.x_val
             y_vec = pose_vec.y_val
@@ -173,6 +200,7 @@ class DroneController:
             )
             with open(MAP_LOCATION, "rb") as f:
                 occ_grid = binvox_rw.read_as_3d_array(f)
+            occ_grid_density.append(np.mean(occ_grid.data))
 
             # Transform coordinates to occupancy grid frame
             # For now assume that the drone is at the center of the occcupancy grid
@@ -188,9 +216,10 @@ class DroneController:
             goal_in_occ_grid = trans_coords.world_to_occ_grid([copy(interrim_goal_vec)])
 
             # Find a valid path
-            trajectory_in_occ_grid = self.find_path(
+            trajectory_in_occ_grid, latency = self.find_path(
                 copy(drone_in_occ_grid), copy(goal_in_occ_grid[0]), occ_grid
             )
+            plan_latency.append(latency)
 
             # Handle the cases where a path is not found. Could be because the interrim goal
             # lies on an obstacle or a path actually does not exist.
@@ -200,6 +229,8 @@ class DroneController:
             stuck = 0  # to prevent infinite loop
             while len(trajectory_in_occ_grid) <= 1:
                 # Change the direction on the XY plane if possible
+                if stuck > 100:
+                    break
                 if angle_mult == 8:
                     stuck += 1
                     if stuck > 4:
@@ -245,29 +276,54 @@ class DroneController:
                 )
 
                 # Find a valid pathconnect_airgen
-                trajectory_in_occ_grid = self.find_path(
+                trajectory_in_occ_grid, latency = self.find_path(
                     copy(drone_in_occ_grid), copy(goal_in_occ_grid[0]), occ_grid
                 )
+                plan_latency.append(latency)
 
             # Transform coordinates back to world frame
             trajectory_in_world = trans_coords.occ_grid_to_world(
                 copy(trajectory_in_occ_grid)
             )
+            for i in range(len(trajectory_in_world) - 1):
+                path_len += trajectory_in_world[i].distance_to(
+                    trajectory_in_world[i + 1]
+                )
 
+            # Run this piece of code in a thread in case the drone is stuck
             # Move the drone along the planned path at a velocity of 5 m/s
             velocity = 5.0
-            self.drone_client.moveOnPathAsync(
-                trajectory_in_world,
-                velocity,
-                120,
-                airgen.DrivetrainType.MaxDegreeOfFreedom,
-                airgen.YawMode(False, 0),
-                -1,
-                0,
-            ).join()
+            if SCALE < 3:
+                velocity = 2.0
+            t = threading.Thread(
+                target=self.drone_client.moveOnPathAsync(
+                    trajectory_in_world,
+                    velocity,
+                    120,
+                    airgen.DrivetrainType.MaxDegreeOfFreedom,
+                    airgen.YawMode(False, 0),
+                    -1,
+                    0,
+                ).join
+            )
+            t.start()
+            t.join(120)  # terminate the thread after 120 seconds
+            if t.is_alive():
+                print("Thread terminated early, the drone might be stuck.")
+                path_found = False
+                end_t = time.perf_counter()
+                break
 
             # Get the pose at the end of plan traversal
             start_pose = self.drone_client.simGetVehiclePose()
+        end_t = time.perf_counter()
+
+        # Collect metrics for each goal
+        self.path_len.append(path_len)
+        self.path_time.append(end_t - start_t)
+        self.path_found.append(path_found)
+        self.occ_grid_density.append(np.mean(occ_grid_density))
+        self.latency.append(np.mean(plan_latency))
 
         print(f"##### Destination reached {goal_pose.position}")
 
@@ -286,16 +342,10 @@ class DroneController:
                     occ_grid_obj.array[i][j][k] = 1 if occ_grid.data[i][j][k] else 0
 
         # Zero drone's voxels
-        if SCALE == 1:
-            for i in range((HORIZON_LEN // 2) - 1, (HORIZON_LEN // 2) + 2):
-                for j in range((HORIZON_LEN // 2) - 1, (HORIZON_LEN // 2) + 2):
-                    for k in range((HORIZON_LEN // 2) - 1, (HORIZON_LEN // 2) + 2):
-                        occ_grid_obj.array[i][j][k] = 0
-        else:
-            occ_grid_obj.array[HORIZON_LEN // 2][HORIZON_LEN // 2][HORIZON_LEN // 2] = 0
+        occ_grid_obj.array[HORIZON_LEN // 2][HORIZON_LEN // 2][HORIZON_LEN // 2] = 0
 
         # Call the c code
-        self.planner(
+        latency = self.planner(
             self.array_type(start_pose.x_val, start_pose.y_val, start_pose.z_val),
             self.array_type(
                 int(goal_pose.x_val), int(goal_pose.y_val), int(goal_pose.z_val)
@@ -303,7 +353,7 @@ class DroneController:
             ctypes.byref(path),
             ctypes.byref(occ_grid_obj),
         )
-        return self.process_path(path)
+        return self.process_path(path), latency
 
     def process_path(self, path):
         path_len = path.path_len
@@ -312,3 +362,54 @@ class DroneController:
         for i in range(path_len):
             vector_path.append(airgen.Vector3r(*path[path_len - i - 1][:]))
         return vector_path
+
+    def write_results(self):
+        # Convert to numpy arrays
+        self.path_found = np.array(self.path_found)
+        self.path_len = np.array(self.path_len)
+        self.path_time = np.array(self.path_time)
+        self.latency = np.array(self.latency)
+        self.occ_grid_density = np.array(self.occ_grid_density)
+
+        with open(
+            os.path.join(
+                f"/home/local/ASUAD/opatil3/src/drone_path_planning/planners/results/",
+                f"{self.planner_name}_{self.env_name}_{time.time()}.txt",
+            ),
+            "w",
+        ) as f:
+            f.write("Experiment parameters =========================================\n")
+            f.write(f"Environment: {self.env_name}\n")
+            f.write(f"Planner: {self.planner_name}\n")
+            f.write(f"Horizon length: {HORIZON_LEN}\n")
+            f.write(f"Plan frequency: {PLAN_FREQ}\n")
+            f.write(f"Distance threshold: {DIST_THRESH}\n")
+            f.write(f"Scale: {SCALE}\n")
+            f.write(f"Iteration threshold: {ITER_THRESH}\n")
+            f.write("\n")
+
+            f.write(
+                "Aggregate metrics for *successful trials only* =========================================\n"
+            )
+            f.write(f"Path found: {np.all(self.path_found)}\n")
+            f.write(
+                f"Path length: {np.mean(self.path_len[self.path_found])}, {np.var(self.path_len[self.path_found])}\n"
+            )
+            f.write(
+                f"Path time: {np.mean(self.path_time[self.path_found])}, {np.var(self.path_time[self.path_found])}\n"
+            )
+            f.write(
+                f"Latency: {np.mean(self.latency[self.path_found])}, {np.var(self.latency[self.path_found])}\n"
+            )
+            f.write(
+                f"Occ grid density: {np.mean(self.occ_grid_density[self.path_found])}, {np.var(self.occ_grid_density[self.path_found])}\n"
+            )
+            f.write("\n")
+
+            f.write("Data dump =========================================\n")
+            f.write(f"Path found: {self.path_found}\n")
+            f.write(f"Path length: {self.path_len}\n")
+            f.write(f"Path time: {self.path_time}\n")
+            f.write(f"Latency: {self.latency}\n")
+            f.write(f"Occ grid density: {self.occ_grid_density}\n")
+            f.write("\n")

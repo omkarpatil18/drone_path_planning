@@ -7,7 +7,7 @@ sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
 from utils import C_IMPL_DIR
 from binvox_rw import read_as_3d_array
 
-HORIZON_LEN = 100
+HORIZON_LEN = 10
 
 
 class CTypesGrid(ctypes.Structure):
@@ -41,6 +41,7 @@ class TestPlanner:
         self.path_found = []
         self.time = []
         self.occ_grid_density = []
+        self.path_len = []
 
     def set_occupancy_grid(self, idx):
         self.occ_grid_obj = CTypesGrid()
@@ -87,8 +88,22 @@ class TestPlanner:
         )
         # self.path_arr = np.ndarray((path.path_len, 3), "f", path.array, order="C")
         if path.path_len != 0:
+            self.path_len.append(self.get_path_len(path))
             return True
         return False
+
+    def get_path_len(self, path):
+        """Returns path length"""
+        path_len = 0
+        for i in range(path.path_len - 1):
+            path_len += np.linalg.norm(
+                [
+                    path.array[i][0] - path.array[i + 1][0],
+                    path.array[i][1] - path.array[i + 1][1],
+                    path.array[i][2] - path.array[i + 1][2],
+                ]
+            )
+        return path_len
 
     def test(self):
         for k in range(10):
@@ -106,8 +121,10 @@ class TestPlanner:
         print(np.all(self.path_found))
         print("-------------------------------------")
         print(np.mean(self.occ_grid_density), np.var(self.occ_grid_density))
+        print("\n-------------------------------------\n")
+        print(f"Path length: {np.mean(self.path_len)}, {np.var(self.path_len)}")
         print("-------------------------------------")
-        print(np.mean(self.time), np.var(self.time))
+        print("Time: ", np.mean(self.time), np.var(self.time))
         with open(
             os.path.join(
                 f"/home/local/ASUAD/opatil3/src/drone_path_planning/simulator/results/",
@@ -125,10 +142,12 @@ class TestPlanner:
                 f"Occupancy grid: {np.mean(self.occ_grid_density)}, {np.var(self.occ_grid_density)}"
             )
             f.write("\n-------------------------------------\n")
+            f.write(f"Path length mean: {np.mean(self.path_len)}, {np.var(self.path_len)}")
+            f.write("\n-------------------------------------\n")
             f.write(f"Time median: {np.median(self.time)}")
             f.write("\n-------------------------------------\n")
             f.write(f"Time mean: {np.mean(self.time)}, {np.var(self.time)}")
 
 
-tp = TestPlanner(dim=HORIZON_LEN, density=0.3, obs_size=30, planner="mikami_opt")
+tp = TestPlanner(dim=HORIZON_LEN, density=0.7, obs_size=7, planner="mikami")
 tp.test()
