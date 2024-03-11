@@ -122,11 +122,17 @@ class DroneController:
         else:
             start_pose, goal_pose = poses
         # Disregard the start pose for now
-        self.drone_client.reset()
-        # Confirm the connection, and enable offboard (API) control
-        self.drone_client.confirmConnection()
-        self.drone_client.enableApiControl(True)
-        self.drone_client.takeoffAsync().join()
+        try:
+            self.drone_client.reset()
+            self.drone_client.confirmConnection()
+            self.drone_client.enableApiControl(True)
+            self.drone_client.takeoffAsync().join()
+        except Exception as e:
+            time.sleep(3)
+            self.drone_client.reset()
+            self.drone_client.confirmConnection()
+            self.drone_client.enableApiControl(True)
+            self.drone_client.takeoffAsync().join()
         print(f"Moving to goal position: {goal_pose.position}")
 
         # Collect metrics for each goal
@@ -219,7 +225,6 @@ class DroneController:
             trajectory_in_occ_grid, latency = self.find_path(
                 copy(drone_in_occ_grid), copy(goal_in_occ_grid[0]), occ_grid
             )
-            plan_latency.append(latency)
 
             # Handle the cases where a path is not found. Could be because the interrim goal
             # lies on an obstacle or a path actually does not exist.
@@ -229,7 +234,7 @@ class DroneController:
             stuck = 0  # to prevent infinite loop
             while len(trajectory_in_occ_grid) <= 1:
                 # Change the direction on the XY plane if possible
-                if stuck > 100:
+                if stuck > 50:
                     break
                 if angle_mult == 8:
                     stuck += 1
@@ -279,7 +284,8 @@ class DroneController:
                 trajectory_in_occ_grid, latency = self.find_path(
                     copy(drone_in_occ_grid), copy(goal_in_occ_grid[0]), occ_grid
                 )
-                plan_latency.append(latency)
+            # Add latency to the results list
+            plan_latency.append(latency)
 
             # Transform coordinates back to world frame
             trajectory_in_world = trans_coords.occ_grid_to_world(
@@ -325,7 +331,7 @@ class DroneController:
         self.occ_grid_density.append(np.mean(occ_grid_density))
         self.latency.append(np.mean(plan_latency))
 
-        print(f"##### Destination reached {goal_pose.position}")
+        print(f"##### Destination {goal_pose.position} reached (or not)! #####")
 
     def find_path(self, start_pose, goal_pose, occ_grid):
         """

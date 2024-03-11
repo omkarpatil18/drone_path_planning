@@ -5,7 +5,7 @@ import numpy as np
 
 sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
 
-from utils import HORIZON_LEN, PLAN_FREQ
+from utils import HORIZON_LEN, PLAN_FREQ, SCALE
 from drone_controller import DroneController
 from airgen_env import POSE_SET
 from utils import (
@@ -29,19 +29,29 @@ class CMikami(DroneController):
         return vector_path
 
 
-# ENV = "AbandonedCableFactory"
+ENV = "AbandonedCableFactory"
 # ENV = "Blocks"
-ENV = "OilRig"
+# ENV = "OilRig"
 # ENV = "ElectricCentral"
 # ENV = "FarNeighborhood"
 # ENV = "NearNeighborhood"
 
-
 POSES = POSE_SET[ENV]
 # Plan path to random point
+print(
+    "Running setting horizon length: ",
+    HORIZON_LEN,
+    ", plan frequency: ",
+    PLAN_FREQ,
+    "and scale to: ",
+    SCALE,
+    "for environment: ",
+    ENV,
+)
+
 controller = CMikami(env_name=ENV, planner_name="Mikami")
 try:
-    for spos, gpos in POSES:
+    for spos, gpos in POSES[:25]:
         sp = get_vector3r_pose(*spos)
         gp = get_vector3r_pose(*gpos)
         controller.plan_and_move((sp, gp))

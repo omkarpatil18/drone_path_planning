@@ -4,7 +4,7 @@ import numpy as np
 
 sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
 
-from utils import HORIZON_LEN, PLAN_FREQ
+from utils import HORIZON_LEN, PLAN_FREQ, SCALE
 from drone_controller import DroneController
 from airgen_env import POSE_SET
 from utils import (
@@ -20,15 +20,30 @@ class CAStar(DroneController):
         super().__init__(**kwargs)
 
 
-# ENV = "AbandonedCableFactory"
+ENV = "AbandonedCableFactory"
 # ENV = "Blocks"
-ENV = "NearNeighborhood"
+# ENV = "OilRig"
+# ENV = "ElectricCentral"
+# ENV = "FarNeighborhood"
+# ENV = "NearNeighborhood"
+
 
 POSES = POSE_SET[ENV]
 # Plan path to random point
+print(
+    "Running setting horizon length: ",
+    HORIZON_LEN,
+    ", plan frequency: ",
+    PLAN_FREQ,
+    "and scale: ",
+    SCALE,
+    "for environment ",
+    ENV,
+)
+
 controller = CAStar(env_name=ENV, planner_name="A-Star")
 try:
-    for spos, gpos in POSES:
+    for spos, gpos in POSES[:25]:
         sp = get_vector3r_pose(*spos)
         gp = get_vector3r_pose(*gpos)
         controller.plan_and_move((sp, gp))

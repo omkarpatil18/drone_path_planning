@@ -4,10 +4,10 @@ import ctypes
 import numpy as np
 
 sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
-from utils import C_IMPL_DIR
 from binvox_rw import read_as_3d_array
 
-HORIZON_LEN = 10
+HORIZON_LEN = 100
+C_IMPL_DIR = "/home/local/ASUAD/opatil3/src/drone_path_planning/planners/c_impl"
 
 
 class CTypesGrid(ctypes.Structure):
@@ -142,12 +142,14 @@ class TestPlanner:
                 f"Occupancy grid: {np.mean(self.occ_grid_density)}, {np.var(self.occ_grid_density)}"
             )
             f.write("\n-------------------------------------\n")
-            f.write(f"Path length mean: {np.mean(self.path_len)}, {np.var(self.path_len)}")
+            f.write(
+                f"Path length mean: {np.mean(self.path_len)}, {np.var(self.path_len)}"
+            )
             f.write("\n-------------------------------------\n")
             f.write(f"Time median: {np.median(self.time)}")
             f.write("\n-------------------------------------\n")
             f.write(f"Time mean: {np.mean(self.time)}, {np.var(self.time)}")
 
 
-tp = TestPlanner(dim=HORIZON_LEN, density=0.7, obs_size=7, planner="mikami")
+tp = TestPlanner(dim=HORIZON_LEN, density=0.3, obs_size=50, planner="astar")
 tp.test()

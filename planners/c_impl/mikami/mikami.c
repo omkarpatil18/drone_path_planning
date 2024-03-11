@@ -665,7 +665,7 @@ void *mikamiTabuchi(Point3D start, Point3D dst, Path *path, OccupancyGrid *occGr
     pathToDst->size = 0;
     path->path_len = 0;
 
-    for (int i = 0; i < 7; i++)
+    for (int i = 0; i < 3; i++)
     {
         int level = i;
         printf("Starting level %d\n", level);
