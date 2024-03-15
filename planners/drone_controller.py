@@ -117,11 +117,6 @@ class DroneController:
         The default implementation is in the find_path function.
         TODO: File I/O of the voxel grid is an unnecessary overhead
         """
-        if poses is None:
-            start_pose, goal_pose = self.spawn_poses()
-        else:
-            start_pose, goal_pose = poses
-        # Disregard the start pose for now
         try:
             self.drone_client.reset()
             self.drone_client.confirmConnection()
@@ -133,6 +128,12 @@ class DroneController:
             self.drone_client.confirmConnection()
             self.drone_client.enableApiControl(True)
             self.drone_client.takeoffAsync().join()
+
+        if poses is None:
+            start_pose, goal_pose = self.spawn_poses()
+        else:
+            _, goal_pose = poses
+            start_pose = self.drone_client.simGetVehiclePose()
         print(f"Moving to goal position: {goal_pose.position}")
 
         # Collect metrics for each goal
@@ -330,7 +331,7 @@ class DroneController:
         self.path_found.append(path_found)
         self.occ_grid_density.append(np.mean(occ_grid_density))
         self.latency.append(np.mean(plan_latency))
-
+        print(plan_latency)
         print(f"##### Destination {goal_pose.position} reached (or not)! #####")
 
     def find_path(self, start_pose, goal_pose, occ_grid):

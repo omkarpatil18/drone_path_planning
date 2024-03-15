@@ -29,11 +29,11 @@ class CMikami(DroneController):
         return vector_path
 
 
-ENV = "AbandonedCableFactory"
+# ENV = "AbandonedCableFactory"
 # ENV = "Blocks"
 # ENV = "OilRig"
 # ENV = "ElectricCentral"
-# ENV = "FarNeighborhood"
+ENV = "FarNeighborhood"
 # ENV = "NearNeighborhood"
 
 POSES = POSE_SET[ENV]

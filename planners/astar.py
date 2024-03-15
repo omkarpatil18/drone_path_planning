@@ -20,11 +20,11 @@ class CAStar(DroneController):
         super().__init__(**kwargs)
 
 
-ENV = "AbandonedCableFactory"
+# ENV = "AbandonedCableFactory"
 # ENV = "Blocks"
 # ENV = "OilRig"
 # ENV = "ElectricCentral"
-# ENV = "FarNeighborhood"
+ENV = "FarNeighborhood"
 # ENV = "NearNeighborhood"
 
 
