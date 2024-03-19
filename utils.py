@@ -6,18 +6,18 @@ import airgen
 
 C_IMPL_DIR = "/home/local/ASUAD/opatil3/src/drone_path_planning/planners/c_impl"
 MAP_LOCATION = "/home/local/ASUAD/opatil3/Simulators/map.binvox"
-# PLAN_FREQ = int(os.environ["PLAN_FREQ"])  # in meters. Should be <= HORIZON_LEN//2
-# HORIZON_LEN = int(
-#     os.environ["HORIZON_LEN"]
-# )  # in meters. Keep in the form of 2x+1, preferrably small.
-# SCALE = int(os.environ["SCALE"])
-PLAN_FREQ = 49
-HORIZON_LEN = 100
-SCALE = 3
+PLAN_FREQ = int(os.environ["PLAN_FREQ"])  # in meters. Should be <= HORIZON_LEN//2
+HORIZON_LEN = int(
+    os.environ["HORIZON_LEN"]
+)  # in meters. Keep in the form of 2x+1, preferrably small.
+SCALE = int(os.environ["SCALE"])
+# PLAN_FREQ = 49
+# HORIZON_LEN = 100
+# SCALE = 3
 
 # Scale of voxel in the occupancy grid relative to the simulator world
 DIST_THRESH = max(
-    2 * SCALE, 7
+    2 * SCALE, 5
 )  # Maximum distance from the goal to be considered successful
 ITER_THRESH = 100  # Maximum number of iterations to find a path
 

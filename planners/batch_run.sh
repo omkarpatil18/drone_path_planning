@@ -29,7 +29,7 @@ python mikami.py;
 export PLAN_FREQ="49"
 export HORIZON_LEN="100"
 export SCALE="3"
-python astar.py;B
+python astar.py;
 python mikami.py;
 
 export PLAN_FREQ="49"

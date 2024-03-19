@@ -153,9 +153,9 @@ class DroneController:
             )
             > DIST_THRESH / 2
             or np.abs(start_pose.position.z_val - goal_pose.position.z_val)
-            > HORIZON_LEN
+            > PLAN_FREQ
         ):
-            if time.perf_counter() - start_t > 250:
+            if time.perf_counter() - start_t > 200:
                 print("Could not find a path to the goal. Exiting...")
                 path_found = False
                 end_t = time.perf_counter()
@@ -314,7 +314,7 @@ class DroneController:
                 ).join
             )
             t.start()
-            t.join(120)  # terminate the thread after 120 seconds
+            t.join(75)  # terminate the thread after 120 seconds
             if t.is_alive():
                 print("Thread terminated early, the drone might be stuck.")
                 path_found = False

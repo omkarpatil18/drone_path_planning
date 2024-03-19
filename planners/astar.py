@@ -23,8 +23,8 @@ class CAStar(DroneController):
 # ENV = "AbandonedCableFactory"
 # ENV = "Blocks"
 # ENV = "OilRig"
-# ENV = "ElectricCentral"
-ENV = "FarNeighborhood"
+ENV = "ElectricCentral"
+# ENV = "FarNeighborhood"
 # ENV = "NearNeighborhood"
 
 

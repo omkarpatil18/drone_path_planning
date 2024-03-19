@@ -32,8 +32,8 @@ class CMikami(DroneController):
 # ENV = "AbandonedCableFactory"
 # ENV = "Blocks"
 # ENV = "OilRig"
-# ENV = "ElectricCentral"
-ENV = "FarNeighborhood"
+ENV = "ElectricCentral"
+# ENV = "FarNeighborhood"
 # ENV = "NearNeighborhood"
 
 POSES = POSE_SET[ENV]
