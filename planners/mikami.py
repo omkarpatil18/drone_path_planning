@@ -1,3 +1,11 @@
+"""
+TODO:
+- Set num levels to 3
+- Run with vertically raised goal point bias if a path is not found
+- Artificially inflate the occupancy grid for small horizon lengths 
+"""
+
+
 import airgen
 import sys
 import ctypes
