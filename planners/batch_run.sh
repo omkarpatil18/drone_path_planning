@@ -22,21 +22,22 @@
 
 export PLAN_FREQ="49"
 export HORIZON_LEN="100"
-export SCALE="2"
-python astar.py;
-python mikami.py;
-
-export PLAN_FREQ="49"
-export HORIZON_LEN="100"
 export SCALE="3"
+export INFLATE="3"
 python astar.py;
 python mikami.py;
 
-export PLAN_FREQ="49"
-export HORIZON_LEN="100"
-export SCALE="5"
-python astar.py;
-python mikami.py;
+# export PLAN_FREQ="49"
+# export HORIZON_LEN="100"
+# export SCALE="3"
+# python astar.py;
+# python mikami.py;
+
+# export PLAN_FREQ="49"
+# export HORIZON_LEN="100"
+# export SCALE="5"
+# python astar.py;
+# python mikami.py;
 
 
 

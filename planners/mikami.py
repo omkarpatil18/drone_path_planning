@@ -5,7 +5,6 @@ TODO:
 - Artificially inflate the occupancy grid for small horizon lengths 
 """
 
-
 import airgen
 import sys
 import ctypes
@@ -13,7 +12,7 @@ import numpy as np
 
 sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
 
-from utils import HORIZON_LEN, PLAN_FREQ, SCALE
+from utils import HORIZON_LEN, PLAN_FREQ, SCALE, INFLATE
 from drone_controller import DroneController
 from airgen_env import POSE_SET
 from utils import (
@@ -23,6 +22,7 @@ from utils import (
 
 
 class CMikami(DroneController):
+    
 
     def __init__(self, **kwargs):
         self.so_file = f"{C_IMPL_DIR}/mikami/mikami_{HORIZON_LEN}.so"
@@ -38,9 +38,9 @@ class CMikami(DroneController):
 
 
 # ENV = "AbandonedCableFactory"
-# ENV = "Blocks"
+ENV = "Blocks"
 # ENV = "OilRig"
-ENV = "ElectricCentral"
+# ENV = "ElectricCentral"
 # ENV = "FarNeighborhood"
 # ENV = "NearNeighborhood"
 
@@ -55,6 +55,8 @@ print(
     SCALE,
     "for environment: ",
     ENV,
+    "inflate: ",
+    INFLATE,
 )
 
 controller = CMikami(env_name=ENV, planner_name="Mikami")
