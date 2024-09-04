@@ -10,20 +10,11 @@ import time
 
 sys.path.append("/home/local/ASUAD/opatil3/src/drone_path_planning")
 import binvox_rw
-from utils import (
-    MAP_LOCATION,
-    HORIZON_LEN,
-    PLAN_FREQ,
-    DIST_THRESH,
-    SCALE,
-    ITER_THRESH,
-    INFLATE,
-)
+from utils import MAP_LOCATION, HORIZON_LEN, PLAN_FREQ, DIST_THRESH, SCALE, ITER_THRESH
 from utils import TransformCoordinates, Path, OccupancyGrid, get_vector3r_pose
 
 
 class DroneController:
-
     def __init__(self, env_name="", planner_name=""):
         # Used to store the results
         self.env_name = env_name
@@ -116,24 +107,6 @@ class DroneController:
                 valid_goal = True
         return start_pose, goal_pose
 
-    def inflate_occ_grid(self, occ_grid, x):
-        """
-        Inflates the occ grid by x ():
-        a, a, a -> ax, ax, ax
-        """
-        # infl_grid = occ_grid.data.repeat(x, axis=0).repeat(x, axis=1).repeat(x, axis=2)
-        inflated_occ_grid = np.kron(
-            occ_grid.data, np.ones((x, x, x), dtype=occ_grid.data.dtype)
-        )
-        # assert infl_grid.all() == inflated_occ_grid.all()
-        return binvox_rw.Voxels(
-            data=inflated_occ_grid,
-            dims=occ_grid.dims * INFLATE,
-            translate=occ_grid.translate,
-            scale=occ_grid.scale,
-            axis_order=occ_grid.axis_order,
-        )
-
     def plan_and_move(self, poses=None):
         """
         Plan the path for a drone flying with a ~constant velocity of 5m/s.
@@ -144,7 +117,6 @@ class DroneController:
         The default implementation is in the find_path function.
         TODO: File I/O of the voxel grid is an unnecessary overhead
         """
-        global PLAN_FREQ, HORIZON_LEN, SCALE, INFLATE
         try:
             self.drone_client.reset()
             self.drone_client.confirmConnection()
@@ -180,7 +152,8 @@ class DroneController:
                 ]
             )
             > DIST_THRESH / 2
-            or np.abs(start_pose.position.z_val - goal_pose.position.z_val) > PLAN_FREQ
+            or np.abs(start_pose.position.z_val - goal_pose.position.z_val)
+            > PLAN_FREQ
         ):
             if time.perf_counter() - start_t > 200:
                 print("Could not find a path to the goal. Exiting...")
@@ -226,24 +199,22 @@ class DroneController:
             # Get voxels for planning
             self.drone_client.simCreateVoxelGrid(
                 start_pose.position,
-                int(HORIZON_LEN * SCALE),
-                int(HORIZON_LEN * SCALE),
-                int(HORIZON_LEN * SCALE),
-                int(SCALE * INFLATE),
+                HORIZON_LEN * SCALE,
+                HORIZON_LEN * SCALE,
+                HORIZON_LEN * SCALE,
+                SCALE,
                 MAP_LOCATION,
             )
             with open(MAP_LOCATION, "rb") as f:
                 occ_grid = binvox_rw.read_as_3d_array(f)
-                occ_grid = self.inflate_occ_grid(occ_grid, INFLATE)
-
             occ_grid_density.append(np.mean(occ_grid.data))
 
             # Transform coordinates to occupancy grid frame
             # For now assume that the drone is at the center of the occcupancy grid
             drone_in_occ_grid = airgen.Vector3r(
-                HORIZON_LEN // 2 -1,
-                HORIZON_LEN // 2 -1,
-                HORIZON_LEN // 2 -1,
+                HORIZON_LEN // 2,
+                HORIZON_LEN // 2,
+                HORIZON_LEN // 2,
             )
             trans_coords = TransformCoordinates(
                 drone_in_occ_grid=copy(drone_in_occ_grid),
@@ -310,7 +281,7 @@ class DroneController:
                     [copy(interrim_goal_vec)]
                 )
 
-                # Find a valid path
+                # Find a valid pathconnect_airgen
                 trajectory_in_occ_grid, latency = self.find_path(
                     copy(drone_in_occ_grid), copy(goal_in_occ_grid[0]), occ_grid
                 )
@@ -329,7 +300,7 @@ class DroneController:
             # Run this piece of code in a thread in case the drone is stuck
             # Move the drone along the planned path at a velocity of 5 m/s
             velocity = 5.0
-            if SCALE * INFLATE < 3:
+            if SCALE < 3:
                 velocity = 2.0
             t = threading.Thread(
                 target=self.drone_client.moveOnPathAsync(
@@ -378,12 +349,7 @@ class DroneController:
                     occ_grid_obj.array[i][j][k] = 1 if occ_grid.data[i][j][k] else 0
 
         # Zero drone's voxels
-        for i in range(int(-INFLATE / 2), int(INFLATE / 2) + 1):
-            for j in range(int(-INFLATE / 2), int(INFLATE / 2) + 1):
-                for k in range(int(-INFLATE / 2), int(INFLATE / 2) + 1):
-                    occ_grid_obj.array[HORIZON_LEN // 2 + i][HORIZON_LEN // 2 + j][
-                        HORIZON_LEN // 2 + k
-                    ] = 0
+        occ_grid_obj.array[HORIZON_LEN // 2][HORIZON_LEN // 2][HORIZON_LEN // 2] = 0
 
         # Call the c code
         latency = self.planner(

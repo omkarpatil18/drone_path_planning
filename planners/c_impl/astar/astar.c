@@ -208,7 +208,7 @@ void reconstructPath(Node *currentNode, Path *path)
 }
 
 // A* algorithm implementation
-void *aStar(Point3D start, Point3D goal, Path *path, OccupancyGrid *occGrid)
+Node *aStar(Point3D start, Point3D goal, Path *path, OccupancyGrid *occGrid)
 {
     if (!isValidPoint(start) || !isValidPoint(goal))
     {

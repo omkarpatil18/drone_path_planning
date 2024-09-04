@@ -1,8 +1,8 @@
 #ifndef _header_h
 #define _header_h
 
-#define PLAN_FREQ 149
-#define HORIZON_LEN 300
+#define PLAN_FREQ 4
+#define HORIZON_LEN 10
 // Define a structure to represent a 3D point
 typedef struct
 {
