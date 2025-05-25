@@ -10,14 +10,19 @@ This work consists of two main components: designing a hardware-software co-desi
 ![Screenshot from 2024-03-15 21-54-56](https://github.com/user-attachments/assets/64f2d1b1-8b33-4ba8-9dbe-7b20610cbd54)
 
 
-## Airgen Credits
+## 🙏 Acknowledgements
+Airgen: https://www.generalrobotics.company/post/airgen
+
+## 📝 Citation
+If you find this work useful, please cite our paper. 
 ```
-@techreport{vemprala2023grid,
-      title={GRID: A Platform for General Robot Intelligence Development}, 
-      author={Sai Vemprala and Shuhang Chen and Abhinav Shukla and Dinesh Narayanan and Ashish Kapoor},
-      year={2023},
-      eprint={2310.00887},
-      archivePrefix={arXiv},
-      primaryClass={cs.RO}
+@inproceedings{dube2024hardware,
+  title={Hardware-Software Co-Design for Path Planning by Drones},
+  author={Dube, Ayushi and Patil, Omkar and Singh, Gian and Gopalan, Nakul and Vrudhula, Sarma},
+  booktitle={2024 IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)},
+  pages={8141--8146},
+  year={2024},
+  organization={IEEE}
 }
+
 ```
