@@ -11,7 +11,7 @@ This work consists of two main components: designing a hardware-software co-desi
 
 
 ## 🙏 Acknowledgements
-Airgen: https://www.generalrobotics.company/post/airgen
+AirGen: https://www.generalrobotics.company/post/airgen
 
 ## 📝 Citation
 If you find this work useful, please cite our paper. 
